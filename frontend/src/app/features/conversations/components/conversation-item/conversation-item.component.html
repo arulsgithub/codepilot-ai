@@ -1,0 +1,34 @@
+<div
+  class="conversation-item"
+  [class.conversation-item--active]="active"
+  (click)="select()"
+>
+  <button
+    type="button"
+    class="conversation-item-main"
+    [attr.aria-current]="active ? 'true' : null"
+  >
+    <span class="conversation-title">{{ conversation.title }}</span>
+  </button>
+
+  <div class="conversation-actions">
+    <button
+      type="button"
+      class="menu-trigger"
+      aria-haspopup="true"
+      [attr.aria-expanded]="menuOpen"
+      aria-label="Conversation actions"
+      (click)="toggleMenu($event)"
+    >
+      ⋯
+    </button>
+
+    @if (menuOpen) {
+      <div class="menu-panel" (mouseleave)="closeMenu()">
+        <button type="button" class="menu-item menu-item--danger" (click)="requestDelete($event)">
+          Delete
+        </button>
+      </div>
+    }
+  </div>
+</div>

@@ -1,0 +1,23 @@
+<div class="composer">
+  <textarea
+    #textareaRef
+    class="composer-textarea"
+    rows="1"
+    placeholder="Ask CodePilot anything..."
+    aria-label="Message CodePilot"
+    [(ngModel)]="draft"
+    (input)="onInput()"
+    (keydown)="onKeydown($event)"
+    [attr.disabled]="disabled ? '' : null"
+  ></textarea>
+
+  <button
+    type="button"
+    class="composer-send"
+    [disabled]="!canSend"
+    aria-label="Send message"
+    (click)="submit()"
+  >
+    Send
+  </button>
+</div>

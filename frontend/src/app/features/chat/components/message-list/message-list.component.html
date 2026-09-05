@@ -1,0 +1,28 @@
+<div class="message-list" #scrollContainer (scroll)="onScroll()">
+  @if (loading) {
+    <div class="skeleton-list" aria-label="Loading messages">
+      @for (i of [1, 2, 3]; track i) {
+        <div class="skeleton-row" [class.skeleton-row--right]="i % 2 === 0">
+          <div class="skeleton-bubble"></div>
+        </div>
+      }
+    </div>
+  } @else {
+    @for (message of messages; track trackByClientId($index, message)) {
+      <app-message-item [message]="message" />
+    }
+
+    @if (showThinkingIndicator) {
+      <div class="thinking-row">
+        <app-typing-indicator />
+      </div>
+    }
+
+    @if (error) {
+      <div class="list-error" role="alert">
+        <span>{{ error }}</span>
+        <button type="button" class="retry-button" (click)="retryRequested.emit()">Retry</button>
+      </div>
+    }
+  }
+</div>

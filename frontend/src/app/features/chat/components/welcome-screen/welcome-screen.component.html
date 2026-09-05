@@ -1,0 +1,17 @@
+<div class="welcome">
+  <div class="welcome-mark" aria-hidden="true">&lt;/&gt;</div>
+  <h1>CodePilot AI</h1>
+  <p class="welcome-subtitle">Your AI software engineering assistant.</p>
+  <p class="welcome-description">
+    Ask questions about Java, Spring Boot, architecture, debugging, APIs,
+    databases, or software engineering.
+  </p>
+
+  <div class="prompt-list">
+    @for (prompt of examplePrompts; track prompt.label) {
+      <button type="button" class="prompt-chip" (click)="selectPrompt(prompt)">
+        {{ prompt.label }}
+      </button>
+    }
+  </div>
+</div>

@@ -1,0 +1,26 @@
+<div
+  class="message-row"
+  [class.message-row--user]="message.role === 'USER'"
+  [class.message-row--assistant]="message.role === 'ASSISTANT'"
+>
+  <div class="message-bubble" [class.message-bubble--error]="message.isError">
+    @if (message.role === 'ASSISTANT') {
+      <div class="message-author">CodePilot</div>
+    }
+
+    @if (message.role === 'USER') {
+      <div class="message-content message-content--plain">{{ message.content }}</div>
+    } @else {
+      <div class="message-content" #contentRef [innerHTML]="message.content | markdown"></div>
+      @if (message.isStreaming) {
+        <span class="stream-cursor" aria-hidden="true">▌</span>
+      }
+    }
+
+    @if (message.isError) {
+      <div class="message-error-note">
+        <span aria-hidden="true">⚠</span> Response interrupted.
+      </div>
+    }
+  </div>
+</div>

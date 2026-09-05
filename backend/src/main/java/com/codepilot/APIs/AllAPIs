@@ -1,0 +1,11 @@
+Conversation APIs:
+
+POST   /api/v1/conversations
+GET    /api/v1/conversations
+GET    /api/v1/conversations/{id}
+DELETE /api/v1/conversations/{id}
+
+Message APIs:
+
+POST /api/v1/conversations/{id}/messages
+GET  /api/v1/conversations/{id}/messages

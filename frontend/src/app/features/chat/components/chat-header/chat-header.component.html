@@ -1,0 +1,31 @@
+<header class="header">
+  <div class="header-left">
+    <button
+      type="button"
+      class="menu-button"
+      aria-label="Toggle conversation sidebar"
+      (click)="menuToggled.emit()"
+    >
+      <span class="menu-icon" aria-hidden="true">☰</span>
+    </button>
+    <span class="brand-mark" aria-hidden="true">&lt;/&gt;</span>
+    <span class="brand-name">CodePilot AI</span>
+  </div>
+
+  <div class="header-right">
+    <span class="badge">Nemotron</span>
+    <span class="badge badge--muted">Phase 1</span>
+    <button
+      type="button"
+      class="theme-toggle"
+      [attr.aria-label]="theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'"
+      (click)="themeToggled.emit()"
+    >
+      @if (theme === 'dark') {
+        <span aria-hidden="true">☀</span>
+      } @else {
+        <span aria-hidden="true">☾</span>
+      }
+    </button>
+  </div>
+</header>

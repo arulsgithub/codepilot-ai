@@ -1,0 +1,47 @@
+<div class="page-shell">
+  <app-chat-header
+    [theme]="theme()"
+    (themeToggled)="toggleTheme()"
+    (menuToggled)="toggleSidebar()"
+  />
+
+  <div class="page-body">
+    <app-conversation-sidebar
+      [conversations]="state.conversations()"
+      [selectedConversationId]="state.selectedConversation()?.id ?? null"
+      [loading]="state.conversationsLoading()"
+      [open]="sidebarOpen()"
+      (newChatRequested)="onNewChat()"
+      (conversationSelected)="onSelectConversation($event)"
+      (conversationDeleted)="onDeleteConversation($event)"
+      (closeRequested)="sidebarOpen.set(false)"
+    />
+
+    <main class="chat-area">
+      @if (state.connectionError(); as connectionError) {
+        <div class="connection-banner" role="alert">{{ connectionError }}</div>
+      }
+
+      @if (!state.selectedConversation()) {
+        <app-welcome-screen (promptSelected)="onExamplePromptSelected($event)" />
+      } @else {
+        <div class="chat-scroll-region">
+          <app-message-list
+            [messages]="state.messages()"
+            [loading]="state.messagesLoading()"
+            [chatState]="state.chatState()"
+            [error]="state.error()"
+            (retryRequested)="onRetry()"
+          />
+        </div>
+      }
+
+      <div class="composer-region">
+        <app-message-composer
+          [disabled]="state.isStreaming()"
+          (messageSubmitted)="onSendMessage($event)"
+        />
+      </div>
+    </main>
+  </div>
+</div>

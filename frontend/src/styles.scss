@@ -1,0 +1,141 @@
+// ---------------------------------------------------------------------------
+// CodePilot AI — global design tokens
+//
+// Everything visual keys off these CSS custom properties so the theme
+// toggle (see app.component.ts) is a single attribute flip on <html>,
+// nothing more. Components should never hardcode a color — reference a
+// token instead, so a future palette tweak only touches this file.
+// ---------------------------------------------------------------------------
+
+:root,
+html[data-theme='dark'] {
+  // Surfaces
+  --color-bg: #0d1117;
+  --color-bg-elevated: #11161d;
+  --color-surface: #161b22;
+  --color-surface-hover: #1c222b;
+  --color-border: #262c36;
+  --color-border-strong: #333b47;
+
+  // Text
+  --color-text-primary: #e6edf3;
+  --color-text-secondary: #9aa4b2;
+  --color-text-muted: #6b7280;
+
+  // Accent — restrained, single accent color per the design brief
+  --color-accent: #4f8cff;
+  --color-accent-hover: #6c9eff;
+  --color-accent-contrast: #061224;
+
+  // Semantic
+  --color-danger: #f2555a;
+  --color-danger-bg: rgba(242, 85, 90, 0.1);
+  --color-success: #3fb950;
+
+  // Chat bubbles
+  --color-bubble-user-bg: #1c2733;
+  --color-bubble-user-border: #2a3a4a;
+  --color-bubble-assistant-bg: transparent;
+
+  // Code
+  --color-code-bg: #0a0e14;
+  --color-code-border: #232a35;
+  --color-code-header-bg: #131920;
+
+  // Shape / elevation
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+
+  // Type
+  --font-sans:
+    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+html[data-theme='light'] {
+  --color-bg: #f6f8fa;
+  --color-bg-elevated: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-hover: #eef1f4;
+  --color-border: #d8dee4;
+  --color-border-strong: #c2cad3;
+
+  --color-text-primary: #1b1f24;
+  --color-text-secondary: #4b5563;
+  --color-text-muted: #6b7280;
+
+  --color-accent: #2f6fed;
+  --color-accent-hover: #1f5ce0;
+  --color-accent-contrast: #ffffff;
+
+  --color-danger: #cf222e;
+  --color-danger-bg: rgba(207, 34, 46, 0.08);
+  --color-success: #1a7f37;
+
+  --color-bubble-user-bg: #eaf1ff;
+  --color-bubble-user-border: #cddcfb;
+  --color-bubble-assistant-bg: transparent;
+
+  --color-code-bg: #0d1117;
+  --color-code-border: #d8dee4;
+  --color-code-header-bg: #f0f2f5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+}
+
+a {
+  color: var(--color-accent);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+// Focus visibility for keyboard navigation — never rely on color alone.
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

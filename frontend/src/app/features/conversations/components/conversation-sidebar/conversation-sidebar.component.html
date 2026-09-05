@@ -1,0 +1,51 @@
+@if (open) {
+  <div class="sidebar-scrim" (click)="closeRequested.emit()"></div>
+}
+
+<aside class="sidebar" [class.sidebar--open]="open">
+  <button type="button" class="new-chat-button" (click)="newChatRequested.emit()">
+    <span aria-hidden="true">+</span> New Chat
+  </button>
+
+  <div class="conversation-scroll">
+    @if (loading) {
+      <div class="skeleton-group">
+        @for (i of [1, 2, 3, 4]; track i) {
+          <div class="skeleton-item"></div>
+        }
+      </div>
+    } @else if (conversations.length === 0) {
+      <p class="empty-hint">No conversations yet. Start a new chat to begin.</p>
+    } @else {
+      @for (group of groups; track group.label) {
+        <div class="conversation-group">
+          <h2 class="group-label">{{ group.label }}</h2>
+          @for (conversation of group.conversations; track conversation.id) {
+            <app-conversation-item
+              [conversation]="conversation"
+              [active]="conversation.id === selectedConversationId"
+              (selected)="conversationSelected.emit($event)"
+              (deleteRequested)="requestDelete($event)"
+            />
+          }
+        </div>
+      }
+    }
+  </div>
+</aside>
+
+@if (pendingDeleteConversation) {
+  <div class="dialog-scrim" role="presentation">
+    <div class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-title">
+      <h3 id="delete-title">Delete conversation?</h3>
+      <p>
+        "{{ pendingDeleteConversation.title }}" and all of its messages will be permanently
+        deleted. This cannot be undone.
+      </p>
+      <div class="confirm-actions">
+        <button type="button" class="btn-secondary" (click)="cancelDelete()">Cancel</button>
+        <button type="button" class="btn-danger" (click)="confirmDelete()">Delete</button>
+      </div>
+    </div>
+  </div>
+}
