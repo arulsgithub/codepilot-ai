@@ -19,14 +19,14 @@ public class GlobalExceptionHandler {
 
         ApiErrorResponse response = new ApiErrorResponse(
                 OffsetDateTime.now(),
-                HttpStatus.NOT_FOUND.value(),
-                ErrorCode.CONVERSATION_NOT_FOUND.name(),
+                HttpStatus.BAD_REQUEST.value(),
+                ErrorCode.RESOURCE_NOT_FOUND.name(),
                 exception.getMessage(),
                 request.getRequestURI()
         );
 
         return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
+                .status(HttpStatus.BAD_REQUEST)
                 .body(response);
     }
 
