@@ -29,7 +29,10 @@ import { CommonModule } from '@angular/common';
 })
 export class MessageComposerComponent {
   @Input() disabled = false;
+  /** True while a response is streaming — swaps the Send button for Stop. */
+  @Input() streaming = false;
   @Output() messageSubmitted = new EventEmitter<string>();
+  @Output() stopRequested = new EventEmitter<void>();
 
   @ViewChild('textareaRef') textareaRef?: ElementRef<HTMLTextAreaElement>;
 

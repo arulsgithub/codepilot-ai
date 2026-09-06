@@ -37,6 +37,23 @@ public class ConversationService {
         return toResponse(savedConversation);
     }
 
+    @Transactional
+    public ConversationResponse editConversation(UUID conversationId, String newTitle) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Conversation not found: " + conversationId
+                        )
+                );
+
+        conversation.setTitle(newTitle);
+        conversation.setUpdatedAt(OffsetDateTime.now());
+
+        Conversation updatedConversation = conversationRepository.save(conversation);
+
+        return toResponse(updatedConversation);
+    }
+
     @Transactional(readOnly = true)
     public ConversationResponse getConversation(UUID conversationId) {
 

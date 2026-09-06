@@ -1,7 +1,10 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Conversation } from '../../../../core/models/conversation.model';
-import { ConversationItemComponent } from '../conversation-item/conversation-item.component';
+import {
+  ConversationItemComponent,
+  ConversationRename,
+} from '../conversation-item/conversation-item.component';
 
 /** A labeled group of conversations, e.g. "Today", "Yesterday", "Older". */
 interface ConversationGroup {
@@ -35,6 +38,7 @@ export class ConversationSidebarComponent {
   @Output() newChatRequested = new EventEmitter<void>();
   @Output() conversationSelected = new EventEmitter<Conversation>();
   @Output() conversationDeleted = new EventEmitter<Conversation>();
+  @Output() conversationRenamed = new EventEmitter<ConversationRename>();
   @Output() closeRequested = new EventEmitter<void>();
 
   groups: ConversationGroup[] = [];

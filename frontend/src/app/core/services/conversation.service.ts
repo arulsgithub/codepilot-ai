@@ -1,7 +1,11 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { Conversation, CreateConversationRequest } from '../models/conversation.model';
+import {
+  Conversation,
+  CreateConversationRequest,
+  UpdateConversationRequest,
+} from '../models/conversation.model';
 
 /**
  * Thin wrapper around the conversation CRUD endpoints. Deliberately has no
@@ -28,6 +32,12 @@ export class ConversationService {
   /** GET /api/v1/conversations/{id} */
   getConversation(conversationId: string): Observable<Conversation> {
     return this.http.get<Conversation>(`${this.basePath}/${conversationId}`);
+  }
+
+  /** PATCH /api/v1/conversations/{id} — renames a conversation. */
+  renameConversation(conversationId: string, title: string): Observable<Conversation> {
+    const body: UpdateConversationRequest = { title };
+    return this.http.patch<Conversation>(`${this.basePath}/${conversationId}`, body);
   }
 
   /** DELETE /api/v1/conversations/{id} */

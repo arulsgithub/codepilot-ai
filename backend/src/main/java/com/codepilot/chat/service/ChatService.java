@@ -7,6 +7,8 @@ import com.codepilot.chat.dto.StreamEvent;
 import com.codepilot.message.dto.MessageResponse;
 import com.codepilot.message.entity.Message;
 import com.codepilot.message.service.MessageService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -16,6 +18,8 @@ import java.util.List;
 
 @Service
 public class ChatService {
+
+    private static final Logger log = LoggerFactory.getLogger(ChatService.class);
 
     private final MessageService messageService;
     private final AIOrchestrator aiOrchestrator;
@@ -66,6 +70,29 @@ public class ChatService {
     }
 
     public Flux<StreamEvent> streamChat(ChatRequest request) {
+
+        // Run the whole flow at subscribe time so that a failure in the
+        // synchronous prologue (missing conversation, DB error, ...) surfaces
+        // as an onError signal rather than a thrown exception. A thrown
+        // exception here would be routed to GlobalExceptionHandler, which
+        // cannot serialise ApiErrorResponse onto a text/event-stream response
+        // (HttpMessageNotWritableException) and leaves the client with a
+        // broken, tokenless response.
+        return Flux.defer(() -> buildStream(request))
+                .onErrorResume(error -> {
+                    log.error(
+                            "Streaming chat failed for conversation {}",
+                            request.conversationId(),
+                            error
+                    );
+                    return Flux.just(
+                            new StreamEvent("START", null),
+                            new StreamEvent("ERROR", null)
+                    );
+                });
+    }
+
+    private Flux<StreamEvent> buildStream(ChatRequest request) {
 
         MessageResponse userMessage =
                 messageService.createUserMessage(

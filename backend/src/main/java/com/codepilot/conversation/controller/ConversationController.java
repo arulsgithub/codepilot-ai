@@ -2,6 +2,7 @@ package com.codepilot.conversation.controller;
 
 import com.codepilot.conversation.dto.ConversationResponse;
 import com.codepilot.conversation.dto.CreateConversationRequest;
+import com.codepilot.conversation.dto.UpdateConversationRequest;
 import com.codepilot.conversation.service.ConversationService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -47,6 +48,16 @@ public class ConversationController {
 
         return ResponseEntity.ok(
                 conversationService.getConversation(conversationId)
+        );
+    }
+
+    @PatchMapping("/{conversationId}")
+    public ResponseEntity<ConversationResponse> updateConversation(
+            @PathVariable UUID conversationId,
+            @Valid @RequestBody UpdateConversationRequest request) {
+
+        return ResponseEntity.ok(
+                conversationService.editConversation(conversationId, request.title())
         );
     }
 

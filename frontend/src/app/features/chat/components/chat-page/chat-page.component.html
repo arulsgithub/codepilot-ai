@@ -14,6 +14,7 @@
       (newChatRequested)="onNewChat()"
       (conversationSelected)="onSelectConversation($event)"
       (conversationDeleted)="onDeleteConversation($event)"
+      (conversationRenamed)="onRenameConversation($event)"
       (closeRequested)="sidebarOpen.set(false)"
     />
 
@@ -39,7 +40,9 @@
       <div class="composer-region">
         <app-message-composer
           [disabled]="state.isStreaming()"
+          [streaming]="state.isStreaming()"
           (messageSubmitted)="onSendMessage($event)"
+          (stopRequested)="onStopStreaming()"
         />
       </div>
     </main>

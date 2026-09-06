@@ -59,6 +59,8 @@ export class ChatStateService {
   private lastFailedTurn: { conversationId: string; message: string; requestId: string } | null = null;
   private activeSubscription: { unsubscribe: () => void } | null = null;
   private messageLoadGeneration = 0;
+  /** clientId of the assistant placeholder tokens are currently streaming into. */
+  private streamingAssistantClientId: string | null = null;
 
   // ---------------------------------------------------------------------
   // Conversations
@@ -84,8 +86,48 @@ export class ChatStateService {
     this.conversationService.createConversation(title).subscribe({
       next: (conversation) => {
         this._conversations.update((list) => [conversation, ...list]);
-        this.selectConversation(conversation);
+        this.activateConversation(conversation);
         onCreated?.(conversation);
+      },
+      error: (err: HttpErrorResponse) => {
+        this._connectionError.set(this.describeConnectionError(err));
+      },
+    });
+  }
+
+  /**
+   * Handles the "New Chat" button. If the user is already sitting in a
+   * freshly created conversation they have not sent anything in yet, that
+   * empty conversation is reused instead of POSTing another throwaway
+   * "New Conversation" row every click.
+   */
+  startNewConversation(): void {
+    const current = this._selectedConversation();
+    const currentIsEmpty =
+      !!current &&
+      this._messages().length === 0 &&
+      !this.isStreaming() &&
+      !this._messagesLoading();
+    if (currentIsEmpty) {
+      return;
+    }
+    this.createConversation();
+  }
+
+  /** Renames a conversation (PATCH) and reflects it in the sidebar + header. */
+  renameConversation(conversationId: string, title: string): void {
+    const trimmed = title.trim();
+    if (!trimmed) {
+      return;
+    }
+    this.conversationService.renameConversation(conversationId, trimmed).subscribe({
+      next: (updated) => {
+        this._conversations.update((list) =>
+          list.map((c) => (c.id === updated.id ? updated : c))
+        );
+        if (this._selectedConversation()?.id === updated.id) {
+          this._selectedConversation.set(updated);
+        }
       },
       error: (err: HttpErrorResponse) => {
         this._connectionError.set(this.describeConnectionError(err));
@@ -100,6 +142,28 @@ export class ChatStateService {
     this._chatState.set('idle');
     this._error.set(null);
     this.loadMessages(conversation.id);
+  }
+
+  /**
+   * Makes `conversation` the selected one WITHOUT fetching message history.
+   *
+   * Used immediately after creating a conversation: it has no persisted
+   * messages yet, and a GET /messages here would race the send that
+   * follows on its heels — the GET resolves with an empty list and calls
+   * `_messages.set([])`, wiping the optimistic user bubble and the
+   * streaming assistant placeholder, so the reply renders into nothing.
+   *
+   * Bumping `messageLoadGeneration` also invalidates any history fetch
+   * still in flight from a previous `selectConversation()` call.
+   */
+  private activateConversation(conversation: Conversation): void {
+    this.cancelActiveStream();
+    this.messageLoadGeneration++;
+    this._selectedConversation.set(conversation);
+    this._messages.set([]);
+    this._messagesLoading.set(false);
+    this._chatState.set('idle');
+    this._error.set(null);
   }
 
   deleteConversation(conversationId: string): void {
@@ -203,6 +267,7 @@ export class ChatStateService {
 
     // 2. Create a temporary assistant placeholder that tokens will stream into.
     const assistantClientId = crypto.randomUUID();
+    this.streamingAssistantClientId = assistantClientId;
     newMessages.push({
       clientId: assistantClientId,
       role: 'ASSISTANT',
@@ -284,9 +349,42 @@ export class ChatStateService {
     this.startStream(turn.conversationId, turn.message, turn.requestId, false);
   }
 
+  /**
+   * User-initiated interrupt of the in-flight response (the Stop button).
+   *
+   * Unsubscribing aborts the underlying fetch (see ChatService), which
+   * closes the backend connection. Unlike `cancelActiveStream()` — an
+   * internal transition that always discards the in-progress messages —
+   * this keeps whatever partial text already streamed in, just finalized
+   * and no longer marked as streaming. The partial reply is NOT persisted
+   * server-side (the abort skips the backend's save step), so it will be
+   * gone on the next history load; that is the intended "stop = discard"
+   * behavior for Phase 1.
+   */
+  stopStreaming(): void {
+    if (!this.isStreaming()) {
+      return;
+    }
+    this.activeSubscription?.unsubscribe();
+    this.activeSubscription = null;
+
+    const assistantClientId = this.streamingAssistantClientId;
+    if (assistantClientId) {
+      this.finalizeAssistantMessage(assistantClientId);
+      // If Stop was hit before a single token arrived, drop the empty bubble.
+      this._messages.update((list) =>
+        list.filter((m) => !(m.clientId === assistantClientId && m.content.length === 0))
+      );
+    }
+    this.streamingAssistantClientId = null;
+    this.lastFailedTurn = null;
+    this._chatState.set('completed');
+  }
+
   cancelActiveStream(): void {
     this.activeSubscription?.unsubscribe();
     this.activeSubscription = null;
+    this.streamingAssistantClientId = null;
     if (this.isStreaming()) {
       this._chatState.set('idle');
     }

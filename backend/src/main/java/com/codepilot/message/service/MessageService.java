@@ -16,6 +16,9 @@ import java.util.UUID;
 @Service
 public class MessageService {
 
+    /** Longest auto-generated conversation title, in characters. */
+    private static final int MAX_TITLE_LENGTH = 60;
+
     private final MessageRepository messageRepository;
     private final ConversationRepository conversationRepository;
 
@@ -62,6 +65,16 @@ public class MessageService {
         message.setRole(role);
         message.setContent(content);
         message.setSequenceNumber(sequenceNumber);
+
+        // Derive a readable, deterministic title from the first message of the
+        // conversation. `conversation` is a managed entity here, so the change
+        // flushes with this transaction — no extra service call or Nemotron
+        // round-trip. A later manual rename (PATCH) is never overwritten
+        // because sequence number 1 only ever occurs once.
+        if (sequenceNumber == 1) {
+            conversation.setTitle(deriveTitle(content));
+        }
+
         message.setCreatedAt(OffsetDateTime.now());
         message.setClientRequestId(clientRequestId);
 
@@ -80,13 +93,27 @@ public class MessageService {
                                         "Conversation not found: " + conversationId
                                 ));
 
-        conversation.setUpdatedAt(OffsetDateTime.now());
-
         return messageRepository
                 .findByConversationOrderBySequenceNumberAsc(conversation)
                 .stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    /**
+     * Turns the first user message into a compact single-line title:
+     * whitespace collapsed, trimmed to {@link #MAX_TITLE_LENGTH} characters
+     * with an ellipsis when it overflows.
+     */
+    private String deriveTitle(String firstMessage) {
+        String normalized = firstMessage.strip().replaceAll("\\s+", " ");
+        if (normalized.isEmpty()) {
+            return "New Conversation";
+        }
+        if (normalized.length() <= MAX_TITLE_LENGTH) {
+            return normalized;
+        }
+        return normalized.substring(0, MAX_TITLE_LENGTH).stripTrailing() + "…";
     }
 
     private MessageResponse toResponse(Message message) {

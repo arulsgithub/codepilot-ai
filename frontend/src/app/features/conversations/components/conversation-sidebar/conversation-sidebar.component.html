@@ -26,6 +26,7 @@
               [active]="conversation.id === selectedConversationId"
               (selected)="conversationSelected.emit($event)"
               (deleteRequested)="requestDelete($event)"
+              (renameRequested)="conversationRenamed.emit($event)"
             />
           }
         </div>

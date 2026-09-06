@@ -13,3 +13,8 @@ export interface Conversation {
 export interface CreateConversationRequest {
   title: string;
 }
+
+/** Request body for `PATCH /api/v1/conversations/{id}`. */
+export interface UpdateConversationRequest {
+  title: string;
+}

@@ -6,6 +6,7 @@ import { ChatHeaderComponent } from '../chat-header/chat-header.component';
 import { MessageListComponent } from '../message-list/message-list.component';
 import { MessageComposerComponent } from '../message-composer/message-composer.component';
 import { WelcomeScreenComponent } from '../welcome-screen/welcome-screen.component';
+import { ConversationRename } from '../../../conversations/components/conversation-item/conversation-item.component';
 import { Conversation } from '../../../../core/models/conversation.model';
 
 const THEME_STORAGE_KEY = 'codepilot-theme';
@@ -48,7 +49,7 @@ export class ChatPageComponent implements OnInit {
   }
 
   onNewChat(): void {
-    this.state.createConversation();
+    this.state.startNewConversation();
     this.sidebarOpen.set(false);
   }
 
@@ -59,6 +60,10 @@ export class ChatPageComponent implements OnInit {
 
   onDeleteConversation(conversation: Conversation): void {
     this.state.deleteConversation(conversation.id);
+  }
+
+  onRenameConversation(rename: ConversationRename): void {
+    this.state.renameConversation(rename.id, rename.title);
   }
 
   onSendMessage(text: string): void {
@@ -81,6 +86,10 @@ export class ChatPageComponent implements OnInit {
 
   onRetry(): void {
     this.state.retryLastMessage();
+  }
+
+  onStopStreaming(): void {
+    this.state.stopStreaming();
   }
 
   toggleSidebar(): void {

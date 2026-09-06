@@ -11,13 +11,24 @@
     [attr.disabled]="disabled ? '' : null"
   ></textarea>
 
-  <button
-    type="button"
-    class="composer-send"
-    [disabled]="!canSend"
-    aria-label="Send message"
-    (click)="submit()"
-  >
-    Send
-  </button>
+  @if (streaming) {
+    <button
+      type="button"
+      class="composer-send composer-stop"
+      aria-label="Stop generating"
+      (click)="stopRequested.emit()"
+    >
+      Stop
+    </button>
+  } @else {
+    <button
+      type="button"
+      class="composer-send"
+      [disabled]="!canSend"
+      aria-label="Send message"
+      (click)="submit()"
+    >
+      Send
+    </button>
+  }
 </div>
