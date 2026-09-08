@@ -1,8 +1,11 @@
 package com.codepilot.common.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -11,6 +14,8 @@ import java.time.OffsetDateTime;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiErrorResponse> handleIllegalArgumentException(
@@ -55,10 +60,33 @@ public class GlobalExceptionHandler {
                 .body(response);
     }
 
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiErrorResponse> handleUnsupportedMediaType(
+            HttpMediaTypeNotSupportedException exception,
+            HttpServletRequest request) {
+
+        String message = "Content-Type '" + exception.getContentType()
+                + "' is not supported. Send this request with 'Content-Type: application/json'.";
+
+        ApiErrorResponse response = new ApiErrorResponse(
+                OffsetDateTime.now(),
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE.value(),
+                ErrorCode.INVALID_REQUEST.name(),
+                message,
+                request.getRequestURI()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+                .body(response);
+    }
+
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ApiErrorResponse> handleIllegalStateException(
             IllegalStateException exception,
             HttpServletRequest request) {
+
+        log.warn("AI provider error for {} {}: {}", request.getMethod(), request.getRequestURI(), exception.getMessage(), exception);
 
         ApiErrorResponse response = new ApiErrorResponse(
                 OffsetDateTime.now(),
@@ -77,6 +105,8 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleGenericException(
             Exception exception,
             HttpServletRequest request) {
+
+        log.error("Unhandled exception for {} {}", request.getMethod(), request.getRequestURI(), exception);
 
         ApiErrorResponse response = new ApiErrorResponse(
                 OffsetDateTime.now(),

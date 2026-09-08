@@ -17,8 +17,10 @@ public class EmbeddingConfig {
     @Bean
     public EmbeddingClient embeddingClient(EmbeddingProperties properties) {
         return switch (properties.getProvider()) {
-            case "nemotron" -> new NemotronEmbeddingClient(properties, 1024); // adjust dimensions to your model's actual output size
+            case "nemotron" -> new NemotronEmbeddingClient(properties, 1024);
+            case "gemini" -> new GeminiEmbeddingClient(properties, 1024);
             default -> throw new IllegalStateException("Unknown embedding provider: " + properties.getProvider());
         };
     }
+
 }

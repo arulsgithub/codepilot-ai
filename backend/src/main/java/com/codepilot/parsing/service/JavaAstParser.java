@@ -2,7 +2,10 @@ package com.codepilot.parsing.service;
 
 import com.codepilot.parsing.dto.CodeUnit;
 import com.codepilot.parsing.dto.CodeUnitType;
-import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.JavaParser;
+import com.github.javaparser.ParseProblemException;
+import com.github.javaparser.ParseResult;
+import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.*;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
@@ -21,6 +24,12 @@ import java.util.Optional;
 @Component
 public class JavaAstParser {
 
+    // StaticJavaParser defaults to LanguageLevel.POPULAR (~Java 8 grammar), which rejects
+    // records, switch expressions, text blocks and pattern instanceof - most of a modern
+    // codebase. Use a dedicated parser pinned to the project's language level (Java 21).
+    private final JavaParser javaParser = new JavaParser(
+            new ParserConfiguration().setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21));
+
     /**
      * @param relativeFilePath path shown in results (e.g. "com/codepilot/chat/service/ChatService.java")
      * @param sourceCode       full text of the .java file
@@ -29,7 +38,10 @@ public class JavaAstParser {
      *         caller decides whether to skip the file or fail the whole scan.
      */
     public List<CodeUnit> parse(String relativeFilePath, String sourceCode) {
-        CompilationUnit compilationUnit = StaticJavaParser.parse(sourceCode);
+        ParseResult<CompilationUnit> parseResult = javaParser.parse(sourceCode);
+        CompilationUnit compilationUnit = parseResult.getResult()
+                .filter(cu -> parseResult.isSuccessful())
+                .orElseThrow(() -> new ParseProblemException(parseResult.getProblems()));
         List<CodeUnit> units = new ArrayList<>();
 
         compilationUnit.accept(new VoidVisitorAdapter<Void>() {

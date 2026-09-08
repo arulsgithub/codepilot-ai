@@ -33,21 +33,31 @@ public class SourceFileParsingService {
     public List<CodeUnit> parseAll(List<SourceFile> sourceFiles) {
         List<CodeUnit> allUnits = new ArrayList<>();
 
+        int javaFiles = 0;
+        int parsed = 0;
+        int skipped = 0;
+
         for (SourceFile sourceFile : sourceFiles) {
             if (!"java".equals(sourceFile.language())) {
                 continue;
             }
+            javaFiles++;
             try {
                 String content = Files.readString(Path.of(sourceFile.absolutePath()));
                 allUnits.addAll(javaAstParser.parse(sourceFile.relativePath(), content));
+                parsed++;
             } catch (ParseProblemException e) {
                 // A single file with invalid/unsupported syntax shouldn't kill the whole scan -
                 // log it so we can see coverage gaps, and move on.
+                skipped++;
                 log.warn("Skipping unparsable file {}: {}", sourceFile.relativePath(), e.getMessage());
             } catch (IOException e) {
                 throw new UncheckedIOException("Failed to read " + sourceFile.absolutePath(), e);
             }
         }
+
+        log.info("Parsed {}/{} Java files ({} skipped), producing {} code units",
+                parsed, javaFiles, skipped, allUnits.size());
 
         return allUnits;
     }

@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
+import com.codepilot.retrieval.service.RetrievalService;
 
 import java.util.List;
 
@@ -24,12 +25,12 @@ public class ChatService {
     private final MessageService messageService;
     private final AIOrchestrator aiOrchestrator;
 
-    public ChatService(
-            MessageService messageService,
-            AIOrchestrator aiOrchestrator) {
+    private final RetrievalService retrievalService;
 
+    public ChatService(MessageService messageService, AIOrchestrator aiOrchestrator, RetrievalService retrievalService) {
         this.messageService = messageService;
         this.aiOrchestrator = aiOrchestrator;
+        this.retrievalService = retrievalService;
     }
 
     public ChatResponse chat(ChatRequest request) {
@@ -49,8 +50,9 @@ public class ChatService {
                 );
 
         // 3. Send conversation to Nemotron
-        String aiResponse =
-                aiOrchestrator.generateResponse(history);
+        String aiResponse = (request.repositoryRoot() != null)
+                ? aiOrchestrator.generateResponse(history, retrievalService.retrieveRelevantChunks(request.message(), request.repositoryRoot()))
+                : aiOrchestrator.generateResponse(history);
 
         // 4. Save assistant's response
         MessageResponse assistantMessage =
@@ -123,12 +125,11 @@ public class ChatService {
 
         Flux<String> tokens;
         try {
-            tokens = aiOrchestrator.generateStreamingResponse(history);
+            tokens = (request.repositoryRoot() != null)
+                    ? aiOrchestrator.generateStreamingResponse(history, retrievalService.retrieveRelevantChunks(request.message(), request.repositoryRoot()))
+                    : aiOrchestrator.generateStreamingResponse(history);
         } catch (Exception exception) {
-            return Flux.just(
-                    new StreamEvent("START", null),
-                    new StreamEvent("ERROR", null)
-            );
+            return Flux.just(new StreamEvent("START", null), new StreamEvent("ERROR", null));
         }
 
         StringBuilder answer = new StringBuilder();

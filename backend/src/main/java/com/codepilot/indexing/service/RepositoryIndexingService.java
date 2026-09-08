@@ -9,7 +9,6 @@ import com.codepilot.ingestion.dto.SourceFile;
 import com.codepilot.ingestion.service.RepositoryIngestionService;
 import com.codepilot.parsing.dto.CodeUnit;
 import com.codepilot.parsing.service.SourceFileParsingService;
-import com.pgvector.PGvector;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -62,9 +61,14 @@ public class RepositoryIndexingService {
         OffsetDateTime now = OffsetDateTime.now();
 
         for (int i = 0; i < chunks.size(); i += EMBEDDING_BATCH_SIZE) {
+            if (i > 0) {
+                // Space out embedding calls so we don't trip the provider's per-minute rate
+                // limit; the client also retries with backoff, but pacing avoids most 429s.
+                sleep(1000);
+            }
             List<CodeChunk> batch = chunks.subList(i, Math.min(i + EMBEDDING_BATCH_SIZE, chunks.size()));
             List<String> texts = batch.stream().map(CodeChunk::content).toList();
-            List<List<Float>> vectors = embeddingClient.embedBatch(texts);
+            List<List<Float>> vectors = embeddingClient.embedBatch(texts, EmbeddingClient.InputType.PASSAGE);
 
             for (int j = 0; j < batch.size(); j++) {
                 CodeChunk chunk = batch.get(j);
@@ -80,7 +84,7 @@ public class RepositoryIndexingService {
                 entity.setEndLine(chunk.endLine());
                 entity.setChunkIndex(chunk.chunkIndex());
                 entity.setTotalChunks(chunk.totalChunks());
-                entity.setEmbedding(new PGvector(vectorArray));
+                entity.setEmbedding(vectorArray);
                 entity.setCreatedAt(now);
                 entities.add(entity);
             }
@@ -88,6 +92,15 @@ public class RepositoryIndexingService {
 
         codeChunkRepository.saveAll(entities);
         return entities.size();
+    }
+
+    private void sleep(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Indexing interrupted while pacing embedding requests", e);
+        }
     }
 
     private float[] toFloatArray(List<Float> values) {

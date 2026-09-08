@@ -13,6 +13,8 @@ public record ChatRequest(
         String message,
 
         @NotNull
-        UUID requestId
+        UUID requestId,
+
+        String repositoryRoot // nullable - when set, this chat uses RAG against that indexed repo
 ) {
 }

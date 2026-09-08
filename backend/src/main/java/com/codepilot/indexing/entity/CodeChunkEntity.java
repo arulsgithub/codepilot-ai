@@ -1,10 +1,12 @@
 package com.codepilot.indexing.entity;
 
-import com.pgvector.PGvector;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.Array;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -44,8 +46,12 @@ public class CodeChunkEntity {
     @Column(name = "total_chunks", nullable = false)
     private int totalChunks;
 
+    // Maps to Postgres pgvector's vector(1024). hibernate-vector handles float[] <-> vector;
+    // without an explicit type Hibernate serializes the field as bytea and the insert fails.
+    @JdbcTypeCode(SqlTypes.VECTOR)
+    @Array(length = 1024)
     @Column(nullable = false, columnDefinition = "vector(1024)")
-    private PGvector embedding;
+    private float[] embedding;
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
