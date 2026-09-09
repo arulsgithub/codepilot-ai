@@ -3,9 +3,15 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ConversationService } from '../../../core/services/conversation.service';
 import { MessageService } from '../../../core/services/message.service';
 import { ChatService, HttpStreamError } from '../../../core/services/chat.service';
+import { IndexingService } from '../../../core/services/indexing.service';
 import { Conversation } from '../../../core/models/conversation.model';
 import { ChatMessageViewModel } from '../../../core/models/message.model';
-import { ChatState } from '../../../core/models/chat.model';
+import { ChatRequest, ChatState, ModeSelection, SourceReference } from '../../../core/models/chat.model';
+import { IndexingStatus } from '../../../core/models/indexing.model';
+
+const REPOSITORY_STORAGE_KEY = 'codepilot-repository-root';
+const MODE_STORAGE_KEY = 'codepilot-chat-mode';
+const MODE_VALUES: ModeSelection[] = ['AUTO', 'FAST', 'CODE', 'REASONING'];
 
 /**
  * Single owner of all chat/conversation UI state, built on Angular Signals.
@@ -23,6 +29,7 @@ export class ChatStateService {
   private readonly conversationService = inject(ConversationService);
   private readonly messageService = inject(MessageService);
   private readonly chatService = inject(ChatService);
+  private readonly indexingService = inject(IndexingService);
 
   // ---- Conversations ----
   private readonly _conversations = signal<Conversation[]>([]);
@@ -54,6 +61,36 @@ export class ChatStateService {
   /** Global connectivity error (e.g. backend unreachable), shown app-wide. */
   private readonly _connectionError = signal<string | null>(null);
   readonly connectionError = this._connectionError.asReadonly();
+
+  // ---- Repository attachment (RAG) ----
+  //
+  // Scope decision: the attached repository is GLOBAL (one at a time), not
+  // per-conversation. Tradeoff: per-conversation would let each chat target
+  // a different repo and would line up neatly with the fact that sources are
+  // not persisted per message — but it needs either a client-side
+  // conversationId->path map with its own persistence, or backend support we
+  // are told not to add. Global is the simpler correct option for now: the
+  // path is restored from localStorage on load, applies to whichever
+  // conversation is active, and can be detached at any time.
+  private readonly _repositoryRoot = signal<string | null>(this.readStoredRepositoryRoot());
+  readonly repositoryRoot = this._repositoryRoot.asReadonly();
+  readonly repositoryAttached = computed(() => !!this._repositoryRoot());
+
+  private readonly _indexingStatus = signal<IndexingStatus>(
+    this._repositoryRoot() ? 'success' : 'idle'
+  );
+  readonly indexingStatus = this._indexingStatus.asReadonly();
+
+  /** chunksIndexed from the most recent successful indexing run, if any. */
+  private readonly _indexedChunkCount = signal<number | null>(null);
+  readonly indexedChunkCount = this._indexedChunkCount.asReadonly();
+
+  private readonly _indexingError = signal<string | null>(null);
+  readonly indexingError = this._indexingError.asReadonly();
+
+  // ---- Model mode ----
+  private readonly _chatMode = signal<ModeSelection>(this.readStoredChatMode());
+  readonly chatMode = this._chatMode.asReadonly();
 
   /** The failed turn, kept so retry is idempotent and does not duplicate its user message. */
   private lastFailedTurn: { conversationId: string; message: string; requestId: string } | null = null;
@@ -215,6 +252,67 @@ export class ChatStateService {
   }
 
   // ---------------------------------------------------------------------
+  // Repository attachment + model mode
+  // ---------------------------------------------------------------------
+
+  /**
+   * Indexes a local repository path and, on success, attaches it so
+   * subsequent chat turns are grounded in it. The request can take
+   * 30-90 seconds; `indexingStatus()` drives the UI in the meantime and the
+   * app stays fully interactive because this is just a cold Observable.
+   *
+   * A failed run leaves any previously attached repository untouched.
+   */
+  indexRepository(path: string): void {
+    const trimmed = path.trim();
+    if (!trimmed || this._indexingStatus() === 'indexing') {
+      return;
+    }
+    this._indexingStatus.set('indexing');
+    this._indexingError.set(null);
+
+    this.indexingService.indexRepository(trimmed).subscribe({
+      next: (result) => {
+        this._repositoryRoot.set(result.repositoryRoot);
+        this._indexedChunkCount.set(result.chunksIndexed);
+        this._indexingStatus.set('success');
+        this.persistRepositoryRoot(result.repositoryRoot);
+      },
+      error: (err: HttpErrorResponse) => {
+        this._indexingStatus.set('error');
+        this._indexingError.set(this.describeIndexingError(err));
+      },
+    });
+  }
+
+  /** Detaches the repository so chat behaves exactly as it did in Phase 1. */
+  detachRepository(): void {
+    this._repositoryRoot.set(null);
+    this._indexedChunkCount.set(null);
+    this._indexingError.set(null);
+    this._indexingStatus.set('idle');
+    this.persistRepositoryRoot(null);
+  }
+
+  /** Clears only a failed/finished indexing message, keeping any attachment. */
+  dismissIndexingStatus(): void {
+    if (this._indexingStatus() === 'indexing') {
+      return;
+    }
+    this._indexingError.set(null);
+    this._indexingStatus.set(this._repositoryRoot() ? 'success' : 'idle');
+  }
+
+  setChatMode(mode: ModeSelection): void {
+    this._chatMode.set(mode);
+    try {
+      localStorage.setItem(MODE_STORAGE_KEY, mode);
+    } catch {
+      // Private-browsing / storage-disabled — mode just won't persist.
+    }
+  }
+
+  // ---------------------------------------------------------------------
   // Sending / streaming
   // ---------------------------------------------------------------------
 
@@ -279,12 +377,18 @@ export class ChatStateService {
     this._messages.update((list) => [...list, ...newMessages]);
 
     this.activeSubscription = this.chatService
-      .streamChat({ conversationId, message: text, requestId })
+      .streamChat(this.buildChatRequest(conversationId, text, requestId))
       .subscribe({
         next: (event) => {
           switch (event.type) {
             case 'START':
               this._chatState.set('streaming');
+              break;
+            case 'SOURCES':
+              // Emitted once, before the first token, only when the answer
+              // used repository context. Attach to the in-flight assistant
+              // message; nothing else about the pipeline changes.
+              this.attachSources(assistantClientId, event.sources ?? []);
               break;
             case 'TOKEN':
               this._chatState.set('streaming');
@@ -390,6 +494,35 @@ export class ChatStateService {
     }
   }
 
+  /**
+   * Builds the stream request body. `repositoryRoot` and `mode` are only
+   * added when they carry meaning — with no repository attached and mode
+   * "Auto" the body is `{ conversationId, message, requestId }`, byte-for-byte
+   * identical to Phase 1.
+   */
+  private buildChatRequest(
+    conversationId: string,
+    message: string,
+    requestId: string
+  ): ChatRequest {
+    const request: ChatRequest = { conversationId, message, requestId };
+    const repositoryRoot = this._repositoryRoot();
+    if (repositoryRoot) {
+      request.repositoryRoot = repositoryRoot;
+    }
+    const mode = this._chatMode();
+    if (mode !== 'AUTO') {
+      request.mode = mode;
+    }
+    return request;
+  }
+
+  private attachSources(assistantClientId: string, sources: SourceReference[]): void {
+    this._messages.update((list) =>
+      list.map((m) => (m.clientId === assistantClientId ? { ...m, sources } : m))
+    );
+  }
+
   private appendToken(assistantClientId: string, token: string): void {
     this._messages.update((list) =>
       list.map((m) => (m.clientId === assistantClientId ? { ...m, content: m.content + token } : m))
@@ -425,5 +558,45 @@ export class ChatStateService {
       return 'Unable to connect to CodePilot backend. Please make sure the backend is running.';
     }
     return 'CodePilot could not generate a response. Please try again.';
+  }
+
+  private describeIndexingError(err: HttpErrorResponse): string {
+    if (err.status === 0) {
+      return 'Unable to reach the CodePilot backend. Please make sure it is running.';
+    }
+    if (err.status === 400 || err.status === 404) {
+      return 'That path could not be indexed. Check that it points to a folder on the machine running the backend.';
+    }
+    return 'Indexing failed. Please try again.';
+  }
+
+  private readStoredRepositoryRoot(): string | null {
+    try {
+      const stored = localStorage.getItem(REPOSITORY_STORAGE_KEY);
+      return stored && stored.trim() ? stored : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private persistRepositoryRoot(path: string | null): void {
+    try {
+      if (path) {
+        localStorage.setItem(REPOSITORY_STORAGE_KEY, path);
+      } else {
+        localStorage.removeItem(REPOSITORY_STORAGE_KEY);
+      }
+    } catch {
+      // Storage unavailable — attachment just won't survive a reload.
+    }
+  }
+
+  private readStoredChatMode(): ModeSelection {
+    try {
+      const stored = localStorage.getItem(MODE_STORAGE_KEY) as ModeSelection | null;
+      return stored && MODE_VALUES.includes(stored) ? stored : 'AUTO';
+    } catch {
+      return 'AUTO';
+    }
   }
 }

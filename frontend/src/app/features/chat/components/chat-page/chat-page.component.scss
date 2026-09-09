@@ -41,6 +41,28 @@
   margin: 0 auto;
 }
 
+.composer-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.composer-repo-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--color-text-muted);
+}
+
+.composer-repo-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-success);
+}
+
 @media (max-width: 640px) {
   .composer-region {
     padding: 10px 12px 14px;

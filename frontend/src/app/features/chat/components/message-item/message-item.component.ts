@@ -9,6 +9,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { MarkdownPipe } from '../../../../shared/pipes/markdown.pipe';
 import { ChatMessageViewModel } from '../../../../core/models/message.model';
+import { MessageSourcesComponent } from '../message-sources/message-sources.component';
 
 /**
  * Renders one chat message bubble.
@@ -25,7 +26,7 @@ import { ChatMessageViewModel } from '../../../../core/models/message.model';
 @Component({
   selector: 'app-message-item',
   standalone: true,
-  imports: [CommonModule, MarkdownPipe],
+  imports: [CommonModule, MarkdownPipe, MessageSourcesComponent],
   templateUrl: './message-item.component.html',
   styleUrl: './message-item.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

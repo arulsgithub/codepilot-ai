@@ -1,3 +1,5 @@
+import { SourceReference } from './chat.model';
+
 /** The role a message was authored by, as defined by the backend. */
 export type MessageRole = 'SYSTEM' | 'USER' | 'ASSISTANT';
 
@@ -35,4 +37,12 @@ export interface ChatMessageViewModel {
   isStreaming?: boolean;
   /** True if this message's generation ended in an error. */
   isError?: boolean;
+  /**
+   * Indexed code chunks this answer drew from, from the streaming `SOURCES`
+   * event. Only ever set on ASSISTANT messages, and only for turns that used
+   * an attached repository. Backend does NOT persist these, so messages
+   * loaded from history or replayed after a dropped connection arrive
+   * without them — that is expected and simply renders nothing.
+   */
+  sources?: SourceReference[];
 }

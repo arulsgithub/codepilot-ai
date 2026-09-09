@@ -22,5 +22,9 @@
         <span aria-hidden="true">⚠</span> Response interrupted.
       </div>
     }
+
+    @if (message.role === 'ASSISTANT' && message.sources?.length) {
+      <app-message-sources [sources]="message.sources!" />
+    }
   </div>
 </div>

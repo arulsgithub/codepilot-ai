@@ -1,8 +1,12 @@
 <div class="page-shell">
   <app-chat-header
     [theme]="theme()"
+    [repositoryRoot]="state.repositoryRoot()"
+    [indexingStatus]="state.indexingStatus()"
     (themeToggled)="toggleTheme()"
     (menuToggled)="toggleSidebar()"
+    (repositoryPanelRequested)="openRepositoryPanel()"
+    (repositoryDetached)="onDetachRepository()"
   />
 
   <div class="page-body">
@@ -38,6 +42,19 @@
       }
 
       <div class="composer-region">
+        <div class="composer-toolbar">
+          <app-mode-selector
+            [mode]="state.chatMode()"
+            [disabled]="state.isStreaming()"
+            (modeChange)="onModeChange($event)"
+          />
+          @if (state.repositoryAttached()) {
+            <span class="composer-repo-hint" title="Answers are grounded in this repository">
+              <span class="composer-repo-dot" aria-hidden="true"></span>
+              Repo attached
+            </span>
+          }
+        </div>
         <app-message-composer
           [disabled]="state.isStreaming()"
           [streaming]="state.isStreaming()"
@@ -47,4 +64,15 @@
       </div>
     </main>
   </div>
+
+  <app-repository-panel
+    [open]="repositoryPanelOpen()"
+    [repositoryRoot]="state.repositoryRoot()"
+    [indexingStatus]="state.indexingStatus()"
+    [indexedChunkCount]="state.indexedChunkCount()"
+    [indexingError]="state.indexingError()"
+    (indexRequested)="onIndexRepository($event)"
+    (detachRequested)="onDetachRepository()"
+    (closeRequested)="closeRepositoryPanel()"
+  />
 </div>

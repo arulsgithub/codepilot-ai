@@ -1,0 +1,110 @@
+@if (open) {
+  <div class="panel-scrim" role="presentation" (click)="close()">
+    <div
+      class="panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="repo-panel-title"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="panel-header">
+        <h2 id="repo-panel-title">Attach a repository</h2>
+        <button
+          type="button"
+          class="panel-close"
+          aria-label="Close"
+          [disabled]="isIndexing"
+          (click)="close()"
+        >
+          ✕
+        </button>
+      </div>
+
+      <p class="panel-intro">
+        Point CodePilot at a local folder. Its Java files are parsed, embedded
+        and stored so answers in this app can be grounded in your real code.
+      </p>
+
+      <label class="field-label" for="repo-path-input">Repository path</label>
+      <input
+        id="repo-path-input"
+        type="text"
+        class="field-input"
+        placeholder="E:\path\to\your\repo"
+        spellcheck="false"
+        autocomplete="off"
+        [(ngModel)]="draftPath"
+        [disabled]="isIndexing"
+        (keydown.enter)="submit()"
+      />
+
+      @switch (indexingStatus) {
+        @case ('indexing') {
+          <div class="status status--working" role="status">
+            <span class="spinner" aria-hidden="true"></span>
+            <span>
+              Indexing… this can take up to about 90 seconds. You can keep
+              using the app; this window will update when it finishes.
+            </span>
+          </div>
+        }
+        @case ('success') {
+          <div class="status status--ok" role="status">
+            <span aria-hidden="true">✓</span>
+            <span>
+              @if (indexedChunkCount !== null) {
+                Indexed {{ indexedChunkCount }} code
+                {{ indexedChunkCount === 1 ? 'chunk' : 'chunks' }}.
+              } @else {
+                Repository attached.
+              }
+            </span>
+          </div>
+        }
+        @case ('error') {
+          <div class="status status--error" role="alert">
+            <span aria-hidden="true">⚠</span>
+            <span>{{ indexingError || 'Indexing failed. Please try again.' }}</span>
+          </div>
+        }
+      }
+
+      @if (repositoryRoot) {
+        <div class="attached">
+          <span class="attached-label">Attached</span>
+          <code class="attached-path">{{ repositoryRoot }}</code>
+        </div>
+      }
+
+      <div class="panel-actions">
+        @if (repositoryRoot) {
+          <button
+            type="button"
+            class="btn btn--ghost"
+            [disabled]="isIndexing"
+            (click)="detach()"
+          >
+            Detach
+          </button>
+        }
+        <span class="spacer"></span>
+        <button
+          type="button"
+          class="btn btn--secondary"
+          [disabled]="isIndexing"
+          (click)="close()"
+        >
+          Close
+        </button>
+        <button
+          type="button"
+          class="btn btn--primary"
+          [disabled]="!canSubmit"
+          (click)="submit()"
+        >
+          {{ isIndexing ? 'Indexing…' : repositoryRoot ? 'Re-index' : 'Index' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -1,0 +1,39 @@
+.mode-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+
+  &--disabled {
+    opacity: 0.55;
+  }
+}
+
+.mode-option {
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover:not(:disabled):not(.mode-option--active) {
+    background: var(--color-surface-hover);
+    color: var(--color-text-primary);
+  }
+
+  &--active {
+    background: var(--color-accent);
+    color: var(--color-accent-contrast);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+  }
+}

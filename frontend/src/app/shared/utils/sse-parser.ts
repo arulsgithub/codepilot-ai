@@ -123,7 +123,11 @@ export class SseParser {
       return false;
     }
     const candidate = value as Record<string, unknown>;
-    const validTypes: StreamEventType[] = ['START', 'TOKEN', 'COMPLETE', 'ERROR'];
+    // 'SOURCES' was added in Phase 2 — it carries an extra `sources` array
+    // alongside the usual `type`/`content`. Any other unrecognised type is
+    // still dropped here (see the "unrecognized type" spec), so a future
+    // backend event can never throw or corrupt the stream.
+    const validTypes: StreamEventType[] = ['START', 'SOURCES', 'TOKEN', 'COMPLETE', 'ERROR'];
     return (
       typeof candidate['type'] === 'string' &&
       validTypes.includes(candidate['type'] as StreamEventType) &&

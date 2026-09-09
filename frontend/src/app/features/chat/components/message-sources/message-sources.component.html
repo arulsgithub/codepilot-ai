@@ -1,0 +1,19 @@
+@if (sources.length) {
+  <details class="sources">
+    <summary class="sources-summary">
+      <span class="sources-icon" aria-hidden="true">◆</span>
+      {{ summaryLabel }}
+    </summary>
+
+    <ul class="sources-list">
+      @for (source of sources; track trackBySource($index, source)) {
+        <li class="source-row">
+          <span class="source-file">{{ fileName(source.filePath) }}</span>
+          <span class="source-lines">{{ lineRange(source) }}</span>
+          <span class="source-path">{{ source.filePath }}</span>
+          <span class="source-symbol">{{ source.qualifiedName }}</span>
+        </li>
+      }
+    </ul>
+  </details>
+}

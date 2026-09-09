@@ -13,8 +13,42 @@
   </div>
 
   <div class="header-right">
+    @if (repositoryRoot) {
+      <span class="repo-chip" [class.repo-chip--indexing]="isIndexing">
+        <button
+          type="button"
+          class="repo-chip-open"
+          [attr.title]="repositoryRoot"
+          (click)="repositoryPanelRequested.emit()"
+        >
+          <span class="repo-icon" aria-hidden="true">▣</span>
+          <span class="repo-name">{{ repositoryName }}</span>
+          @if (isIndexing) {
+            <span class="repo-indexing-dot" aria-hidden="true"></span>
+            <span class="repo-indexing-text">indexing…</span>
+          }
+        </button>
+        <button
+          type="button"
+          class="repo-chip-detach"
+          aria-label="Detach repository"
+          (click)="repositoryDetached.emit()"
+        >
+          ✕
+        </button>
+      </span>
+    } @else {
+      <button
+        type="button"
+        class="repo-attach"
+        (click)="repositoryPanelRequested.emit()"
+      >
+        <span class="repo-icon" aria-hidden="true">▣</span> Attach repo
+      </button>
+    }
+
     <span class="badge">Nemotron</span>
-    <span class="badge badge--muted">Phase 1</span>
+    <span class="badge badge--muted">Phase 2</span>
     <button
       type="button"
       class="theme-toggle"

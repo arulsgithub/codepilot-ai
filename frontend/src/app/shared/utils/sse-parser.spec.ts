@@ -86,6 +86,49 @@ describe('SseParser', () => {
     expect(events).toEqual([]);
   });
 
+  it('parses a SOURCES event and preserves its sources array', () => {
+    const events = parser.push(
+      'data: {"type":"SOURCES","content":null,"sources":[' +
+        '{"filePath":"com/codepilot/chat/service/ChatService.java",' +
+        '"qualifiedName":"com.codepilot.chat.service.ChatService#sendMessage",' +
+        '"startLine":48,"endLine":71}]}\n\n'
+    );
+    expect(events).toEqual([
+      {
+        type: 'SOURCES',
+        content: null,
+        sources: [
+          {
+            filePath: 'com/codepilot/chat/service/ChatService.java',
+            qualifiedName: 'com.codepilot.chat.service.ChatService#sendMessage',
+            startLine: 48,
+            endLine: 71,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('reassembles a SOURCES event split across chunk boundaries', () => {
+    expect(parser.push('data: {"type":"SOURCES","content":null,"sourc')).toEqual([]);
+    const events = parser.push('es":[]}\n\n');
+    expect(events).toEqual([{ type: 'SOURCES', content: null, sources: [] }]);
+  });
+
+  it('keeps the Phase 1 event sequence intact when a SOURCES event is interleaved', () => {
+    const all: unknown[] = [];
+    all.push(...parser.push('data: {"type":"START","content":null}\n\n'));
+    all.push(...parser.push('data: {"type":"SOURCES","content":null,"sources":[]}\n\n'));
+    all.push(...parser.push('data: {"type":"TOKEN","content":"Hi"}\n\n'));
+    all.push(...parser.push('data: {"type":"COMPLETE","content":null}\n\n'));
+    expect(all).toEqual([
+      { type: 'START', content: null },
+      { type: 'SOURCES', content: null, sources: [] },
+      { type: 'TOKEN', content: 'Hi' },
+      { type: 'COMPLETE', content: null },
+    ]);
+  });
+
   it('ignores a blank keep-alive record', () => {
     const events = parser.push('\n\n');
     expect(events).toEqual([]);

@@ -47,4 +47,48 @@ public class PromptBuilder {
                 """ + contextBlock;
     }
 
+    /**
+     * The response format is strict because EditBlockParser matches on these exact markers,
+     * and searchText must be byte-identical to the file. The prohibitions below are all
+     * failure modes models fall into by default - especially eliding code with "...".
+     */
+    public String buildEditSystemPrompt(List<CodeChunkEntity> relevantChunks) {
+        StringBuilder contextBlock = new StringBuilder();
+        for (CodeChunkEntity chunk : relevantChunks) {
+            contextBlock.append("File: ").append(chunk.getRelativeFilePath())
+                    .append(" (lines ").append(chunk.getStartLine())
+                    .append("-").append(chunk.getEndLine()).append(")\n")
+                    .append("```\n").append(chunk.getContent()).append("\n```\n\n");
+        }
+
+        return """
+                You are CodePilot, an AI software engineering assistant that edits code.
+
+                Produce edits ONLY in the following format, and nothing else outside it:
+
+                SUMMARY: <one line describing the overall change>
+
+                ### EDIT: <relative/file/path.java>
+                <<<<<<< SEARCH
+                <exact existing code to find>
+                =======
+                <replacement code>
+                >>>>>>> REPLACE
+
+                Rules you MUST follow:
+                - The SEARCH text must be copied EXACTLY from the code shown below, character
+                  for character, including whitespace and indentation.
+                - NEVER abbreviate with "...", "// rest unchanged", or similar. Every line in
+                  the SEARCH block must be real, complete code from the file.
+                - The SEARCH text must be unique within its file. Include enough surrounding
+                  lines to make it unambiguous.
+                - Use one ### EDIT block per change. Multiple blocks may target the same file.
+                - Only edit files shown in the context below. If the context does not contain
+                  what you need, say so in the SUMMARY and produce no EDIT blocks.
+                - Do not explain your reasoning outside the SUMMARY line.
+
+                ==== RELEVANT CODE ====
+                """ + contextBlock;
+    }
+
 }

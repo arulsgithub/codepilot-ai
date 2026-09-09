@@ -6,8 +6,11 @@ import { ChatHeaderComponent } from '../chat-header/chat-header.component';
 import { MessageListComponent } from '../message-list/message-list.component';
 import { MessageComposerComponent } from '../message-composer/message-composer.component';
 import { WelcomeScreenComponent } from '../welcome-screen/welcome-screen.component';
+import { ModeSelectorComponent } from '../mode-selector/mode-selector.component';
+import { RepositoryPanelComponent } from '../repository-panel/repository-panel.component';
 import { ConversationRename } from '../../../conversations/components/conversation-item/conversation-item.component';
 import { Conversation } from '../../../../core/models/conversation.model';
+import { ModeSelection } from '../../../../core/models/chat.model';
 
 const THEME_STORAGE_KEY = 'codepilot-theme';
 
@@ -30,6 +33,8 @@ const THEME_STORAGE_KEY = 'codepilot-theme';
     MessageListComponent,
     MessageComposerComponent,
     WelcomeScreenComponent,
+    ModeSelectorComponent,
+    RepositoryPanelComponent,
   ],
   templateUrl: './chat-page.component.html',
   styleUrl: './chat-page.component.scss',
@@ -41,6 +46,7 @@ export class ChatPageComponent implements OnInit {
   @ViewChild(MessageComposerComponent) composer?: MessageComposerComponent;
 
   sidebarOpen = signal(false);
+  repositoryPanelOpen = signal(false);
   theme = signal<'dark' | 'light'>(this.readStoredTheme());
 
   ngOnInit(): void {
@@ -90,6 +96,29 @@ export class ChatPageComponent implements OnInit {
 
   onStopStreaming(): void {
     this.state.stopStreaming();
+  }
+
+  onModeChange(mode: ModeSelection): void {
+    this.state.setChatMode(mode);
+  }
+
+  openRepositoryPanel(): void {
+    this.repositoryPanelOpen.set(true);
+  }
+
+  closeRepositoryPanel(): void {
+    this.repositoryPanelOpen.set(false);
+    // Drop any transient "failed"/"done" banner so a stale message doesn't
+    // greet the user next time they open the panel; the attachment stays.
+    this.state.dismissIndexingStatus();
+  }
+
+  onIndexRepository(path: string): void {
+    this.state.indexRepository(path);
+  }
+
+  onDetachRepository(): void {
+    this.state.detachRepository();
   }
 
   toggleSidebar(): void {

@@ -31,6 +31,12 @@ public class RetrievalService {
         return codeChunkRepository.findSimilarChunks(repositoryRoot, pgvectorLiteral, DEFAULT_TOP_K);
     }
 
+    /** Editing needs broader context than Q&A, so callers can request more chunks. */
+    public List<CodeChunkEntity> retrieveRelevantChunks(String question, String repositoryRoot, int topK) {
+        List<Float> questionVector = embeddingClient.embed(question, EmbeddingClient.InputType.QUERY);
+        return codeChunkRepository.findSimilarChunks(repositoryRoot, toPgvectorLiteral(questionVector), topK);
+    }
+
     /**
      * pgvector expects vector input as text shaped like "[0.1,0.2,0.3]" - this just formats our
      * Java List<Float> into that exact shape so Postgres can parse it.
