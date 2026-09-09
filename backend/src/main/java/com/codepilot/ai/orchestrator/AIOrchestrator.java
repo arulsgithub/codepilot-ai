@@ -1,10 +1,11 @@
 package com.codepilot.ai.orchestrator;
 
-import com.codepilot.ai.client.LLMClient;
-import com.codepilot.ai.client.NemotronProperties;
 import com.codepilot.ai.dto.LLMMessage;
 import com.codepilot.ai.dto.LLMRequest;
 import com.codepilot.ai.dto.LLMResponse;
+import com.codepilot.ai.model.ModelMode;
+import com.codepilot.ai.model.ModelRouter;
+import com.codepilot.ai.model.ResolvedModel;
 import com.codepilot.ai.prompt.PromptBuilder;
 import com.codepilot.indexing.entity.CodeChunkEntity;
 import com.codepilot.message.entity.Message;
@@ -17,127 +18,54 @@ import java.util.List;
 @Service
 public class AIOrchestrator {
 
-    private final LLMClient llmClient;
+    private final ModelRouter modelRouter;
     private final PromptBuilder promptBuilder;
-    private final NemotronProperties properties;
 
-    public AIOrchestrator(
-            LLMClient llmClient,
-            PromptBuilder promptBuilder,
-            NemotronProperties properties) {
-
-        this.llmClient = llmClient;
+    public AIOrchestrator(ModelRouter modelRouter, PromptBuilder promptBuilder) {
+        this.modelRouter = modelRouter;
         this.promptBuilder = promptBuilder;
-        this.properties = properties;
     }
 
-    public String generateResponse(List<Message> conversationHistory) {
+    // ---- Non-RAG ----
 
-        List<LLMMessage> messages = new ArrayList<>();
-
-        // System instruction
-        messages.add(
-                new LLMMessage(
-                        "system",
-                        promptBuilder.buildSystemPrompt()
-                )
-        );
-
-        // Conversation history
-        for (Message message : conversationHistory) {
-
-            String role = switch (message.getRole()) {
-                case USER -> "user";
-                case ASSISTANT -> "assistant";
-                case SYSTEM -> "system";
-            };
-
-            messages.add(
-                    new LLMMessage(
-                            role,
-                            message.getContent()
-                    )
-            );
-        }
-
-        LLMRequest request = new LLMRequest(
-                properties.model(),
-                messages,
-                0.2,
-                false
-        );
-
-        LLMResponse response = llmClient.chat(request);
-
-        if (response == null
-                || response.choices() == null
-                || response.choices().isEmpty()
-                || response.choices().getFirst().message() == null) {
-
-            throw new IllegalStateException(
-                    "AI provider returned an empty response"
-            );
-        }
-
-        String content =
-                response.choices()
-                        .getFirst()
-                        .message()
-                        .content();
-
-        if (content == null || content.isBlank()) {
-            throw new IllegalStateException(
-                    "AI provider returned empty content"
-            );
-        }
-
-        return content;
+    public String generateResponse(List<Message> conversationHistory, ModelMode mode) {
+        return complete(buildMessages(conversationHistory, null), mode);
     }
 
-    public Flux<String> generateStreamingResponse(List<Message> conversationHistory) {
-
-        List<LLMMessage> messages = new ArrayList<>();
-
-        messages.add(
-                new LLMMessage(
-                        "system",
-                        promptBuilder.buildSystemPrompt()
-                )
-        );
-
-        for (Message message : conversationHistory) {
-
-            String role = switch (message.getRole()) {
-                case USER -> "user";
-                case ASSISTANT -> "assistant";
-                case SYSTEM -> "system";
-            };
-
-            messages.add(
-                    new LLMMessage(
-                            role,
-                            message.getContent()
-                    )
-            );
-        }
-
-        LLMRequest request = new LLMRequest(
-                properties.model(),
-                messages,
-                0.2,
-                true
-        );
-
-        return llmClient.streamChat(request);
+    public Flux<String> generateStreamingResponse(List<Message> conversationHistory, ModelMode mode) {
+        return stream(buildMessages(conversationHistory, null), mode);
     }
 
-    public String generateResponse(List<Message> conversationHistory, List<CodeChunkEntity> relevantChunks) {
+    // ---- RAG (retrieved code chunks injected into the system prompt) ----
+
+    public String generateResponse(List<Message> conversationHistory,
+                                   List<CodeChunkEntity> relevantChunks, ModelMode mode) {
+        return complete(buildMessages(conversationHistory, relevantChunks), mode);
+    }
+
+    public Flux<String> generateStreamingResponse(List<Message> conversationHistory,
+                                                  List<CodeChunkEntity> relevantChunks, ModelMode mode) {
+        return stream(buildMessages(conversationHistory, relevantChunks), mode);
+    }
+
+    // ---- shared internals ----
+
+    /** relevantChunks == null means "no retrieval context" (plain chat). */
+    private List<LLMMessage> buildMessages(List<Message> conversationHistory,
+                                           List<CodeChunkEntity> relevantChunks) {
         List<LLMMessage> messages = new ArrayList<>();
-        messages.add(new LLMMessage("system", promptBuilder.buildSystemPromptWithContext(relevantChunks)));
+        String systemPrompt = (relevantChunks == null)
+                ? promptBuilder.buildSystemPrompt()
+                : promptBuilder.buildSystemPromptWithContext(relevantChunks);
+        messages.add(new LLMMessage("system", systemPrompt));
         appendHistory(messages, conversationHistory);
+        return messages;
+    }
 
-        LLMRequest request = new LLMRequest(properties.model(), messages, 0.2, false);
-        LLMResponse response = llmClient.chat(request);
+    private String complete(List<LLMMessage> messages, ModelMode mode) {
+        ResolvedModel resolved = modelRouter.resolve(mode);
+        LLMRequest request = new LLMRequest(resolved.model(), messages, 0.2, false);
+        LLMResponse response = resolved.client().chat(request);
 
         if (response == null || response.choices() == null || response.choices().isEmpty()
                 || response.choices().getFirst().message() == null) {
@@ -150,19 +78,12 @@ public class AIOrchestrator {
         return content;
     }
 
-    public Flux<String> generateStreamingResponse(List<Message> conversationHistory, List<CodeChunkEntity> relevantChunks) {
-        List<LLMMessage> messages = new ArrayList<>();
-        messages.add(new LLMMessage("system", promptBuilder.buildSystemPromptWithContext(relevantChunks)));
-        appendHistory(messages, conversationHistory);
-
-        LLMRequest request = new LLMRequest(properties.model(), messages, 0.2, true);
-        return llmClient.streamChat(request);
+    private Flux<String> stream(List<LLMMessage> messages, ModelMode mode) {
+        ResolvedModel resolved = modelRouter.resolve(mode);
+        LLMRequest request = new LLMRequest(resolved.model(), messages, 0.2, true);
+        return resolved.client().streamChat(request);
     }
 
-    /**
-     * Pulled out of the 4 near-identical role-mapping loops (2 existing + 2 new above) so the
-     * mapping logic exists in exactly one place - purely a cleanup, doesn't change behavior.
-     */
     private void appendHistory(List<LLMMessage> messages, List<Message> conversationHistory) {
         for (Message message : conversationHistory) {
             String role = switch (message.getRole()) {

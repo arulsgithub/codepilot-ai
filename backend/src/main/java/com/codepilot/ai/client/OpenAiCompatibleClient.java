@@ -4,38 +4,42 @@ import com.codepilot.ai.dto.LLMRequest;
 import com.codepilot.ai.dto.LLMResponse;
 import com.codepilot.ai.dto.LLMStreamChunk;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.context.annotation.Primary;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.codec.ServerSentEvent;
-import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 
 import java.util.Objects;
 
-@Component
-@Primary
-public class NemotronClient implements LLMClient {
+/**
+ * One client for any OpenAI-compatible provider (Groq, OpenRouter, ...). Not a @Component -
+ * ModelRouter instantiates one per configured provider, since each needs its own base URL/key.
+ *
+ * This intentionally duplicates NemotronClient's logic rather than refactoring it, so the
+ * working Nemotron path carries zero risk from this change. Once multi-model is proven in
+ * production, NemotronClient could be deleted and routed through this class instead - worth
+ * doing eventually, but not while we're changing several things at once.
+ */
+public class OpenAiCompatibleClient implements LLMClient {
 
     private final WebClient webClient;
-    private final NemotronProperties properties;
     private final ObjectMapper objectMapper;
+    private final String providerName;
 
-    public NemotronClient(
-            WebClient nemotronWebClient,
-            NemotronProperties properties,
-            ObjectMapper objectMapper) {
-
-        this.webClient = nemotronWebClient;
-        this.properties = properties;
+    public OpenAiCompatibleClient(String providerName, String baseUrl, String apiKey,
+                                  WebClient.Builder builder, ObjectMapper objectMapper) {
+        this.providerName = providerName;
         this.objectMapper = objectMapper;
+        this.webClient = builder
+                .baseUrl(baseUrl)
+                .defaultHeader("Authorization", "Bearer " + apiKey)
+                .defaultHeader("Content-Type", "application/json")
+                .build();
     }
 
     @Override
     public LLMResponse chat(LLMRequest request) {
-
-        return webClient
-                .post()
+        return webClient.post()
                 .uri("/chat/completions")
                 .bodyValue(request)
                 .retrieve()
@@ -45,16 +49,10 @@ public class NemotronClient implements LLMClient {
 
     @Override
     public Flux<String> streamChat(LLMRequest request) {
-
         LLMRequest streamingRequest = new LLMRequest(
-                request.model(),
-                request.messages(),
-                request.temperature(),
-                true
-        );
+                request.model(), request.messages(), request.temperature(), true);
 
-        return webClient
-                .post()
+        return webClient.post()
                 .uri("/chat/completions")
                 .bodyValue(streamingRequest)
                 .retrieve()
@@ -66,38 +64,23 @@ public class NemotronClient implements LLMClient {
     }
 
     private Flux<String> extractContent(String json) {
-
         try {
-            LLMStreamChunk chunk =
-                    objectMapper.readValue(json, LLMStreamChunk.class);
-
+            LLMStreamChunk chunk = objectMapper.readValue(json, LLMStreamChunk.class);
             if (chunk.choices() == null || chunk.choices().isEmpty()) {
                 return Flux.empty();
             }
-
-            LLMStreamChunk.Delta delta =
-                    chunk.choices().getFirst().delta();
-
+            LLMStreamChunk.Delta delta = chunk.choices().getFirst().delta();
             if (delta == null) {
                 return Flux.empty();
             }
-
             String content = delta.content();
-
             if (content == null || content.isEmpty()) {
                 return Flux.empty();
             }
-
             return Flux.just(content);
-
         } catch (Exception e) {
-
-            return Flux.error(
-                    new IllegalStateException(
-                            "Failed to parse Nemotron streaming response",
-                            e
-                    )
-            );
+            return Flux.error(new IllegalStateException(
+                    "Failed to parse " + providerName + " streaming response", e));
         }
     }
 }

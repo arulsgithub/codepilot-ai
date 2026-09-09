@@ -1,5 +1,6 @@
 package com.codepilot.chat.dto;
 
+import com.codepilot.ai.model.ModelMode;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -15,6 +16,8 @@ public record ChatRequest(
         @NotNull
         UUID requestId,
 
-        String repositoryRoot // nullable - when set, this chat uses RAG against that indexed repo
+        String repositoryRoot, // nullable - when set, this chat uses RAG against that indexed repo
+
+        ModelMode mode         // nullable - explicit mode override; null = chosen automatically
 ) {
 }
