@@ -7,6 +7,7 @@
     (menuToggled)="toggleSidebar()"
     (repositoryPanelRequested)="openRepositoryPanel()"
     (repositoryDetached)="onDetachRepository()"
+    (editPanelRequested)="openEditPanel()"
   />
 
   <div class="page-body">
@@ -74,5 +75,11 @@
     (indexRequested)="onIndexRepository($event)"
     (detachRequested)="onDetachRepository()"
     (closeRequested)="closeRepositoryPanel()"
+  />
+
+  <app-edit-panel
+    [open]="editPanelOpen()"
+    (attachRepoRequested)="onEditPanelAttachRepo()"
+    (closeRequested)="closeEditPanel()"
   />
 </div>

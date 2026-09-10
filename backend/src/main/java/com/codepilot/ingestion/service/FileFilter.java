@@ -16,7 +16,8 @@ public class FileFilter {
     private static final Set<String> EXCLUDED_DIRS = Set.of(
             ".git", ".idea", ".vscode",
             "node_modules", "dist", "build", "target",
-            ".angular", "coverage", ".mvn"
+            ".angular", "coverage", ".mvn",
+            ".codepilot-backups"   // our own edit backups - never index copies of the code
     );
 
     private static final Map<String, String> EXTENSION_TO_LANGUAGE = Map.ofEntries(

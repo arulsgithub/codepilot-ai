@@ -8,6 +8,7 @@ import { MessageComposerComponent } from '../message-composer/message-composer.c
 import { WelcomeScreenComponent } from '../welcome-screen/welcome-screen.component';
 import { ModeSelectorComponent } from '../mode-selector/mode-selector.component';
 import { RepositoryPanelComponent } from '../repository-panel/repository-panel.component';
+import { EditPanelComponent } from '../edit-panel/edit-panel.component';
 import { ConversationRename } from '../../../conversations/components/conversation-item/conversation-item.component';
 import { Conversation } from '../../../../core/models/conversation.model';
 import { ModeSelection } from '../../../../core/models/chat.model';
@@ -35,6 +36,7 @@ const THEME_STORAGE_KEY = 'codepilot-theme';
     WelcomeScreenComponent,
     ModeSelectorComponent,
     RepositoryPanelComponent,
+    EditPanelComponent,
   ],
   templateUrl: './chat-page.component.html',
   styleUrl: './chat-page.component.scss',
@@ -47,6 +49,7 @@ export class ChatPageComponent implements OnInit {
 
   sidebarOpen = signal(false);
   repositoryPanelOpen = signal(false);
+  editPanelOpen = signal(false);
   theme = signal<'dark' | 'light'>(this.readStoredTheme());
 
   ngOnInit(): void {
@@ -103,6 +106,20 @@ export class ChatPageComponent implements OnInit {
   }
 
   openRepositoryPanel(): void {
+    this.repositoryPanelOpen.set(true);
+  }
+
+  openEditPanel(): void {
+    this.editPanelOpen.set(true);
+  }
+
+  closeEditPanel(): void {
+    this.editPanelOpen.set(false);
+  }
+
+  /** From the edit panel's "no repository attached" state — send them to attach one. */
+  onEditPanelAttachRepo(): void {
+    this.editPanelOpen.set(false);
     this.repositoryPanelOpen.set(true);
   }
 

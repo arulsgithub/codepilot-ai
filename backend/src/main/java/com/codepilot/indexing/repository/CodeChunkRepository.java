@@ -15,9 +15,18 @@ public interface CodeChunkRepository extends JpaRepository<CodeChunkEntity, UUID
     @Query("delete from CodeChunkEntity c where c.repositoryRoot = :repositoryRoot")
     void deleteByRepositoryRoot(@Param("repositoryRoot") String repositoryRoot);
 
+    /** Used after an edit: replace just the changed files' chunks, not the whole repository. */
+    @Modifying
+    @Query("delete from CodeChunkEntity c where c.repositoryRoot = :repositoryRoot "
+            + "and c.relativeFilePath in :relativeFilePaths")
+    void deleteByRepositoryRootAndFilePaths(
+            @Param("repositoryRoot") String repositoryRoot,
+            @Param("relativeFilePaths") List<String> relativeFilePaths
+    );
+
     /**
      * "queryVector" arrives as a pgvector literal string like "[0.12,0.98,...]" (built in
-     * RetrievalService below) - we can't pass a Java List<Float> directly into a native query,
+     * RetrievalService) - we can't pass a Java List<Float> directly into a native query,
      * so we format it as text and let Postgres parse/cast it back into a real vector with
      * ::vector. embedding <=> :queryVector is pgvector's cosine-distance operator: SMALLER
      * means MORE similar, which is why we ORDER BY it ascending (closest first) with no DESC.

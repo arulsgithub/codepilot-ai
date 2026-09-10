@@ -15,10 +15,11 @@ public record EditPlanResponse(
     public record EditPreview(
             String relativeFilePath,
             boolean valid,
-            String problem,      // null when valid; explains the rejection otherwise
-            String unifiedDiff,  // null when invalid
-            String searchText,   // echoed back so Stage B can re-validate what was approved
-            String replaceText
+            String problem,
+            String unifiedDiff,
+            String searchText,
+            String replaceText,
+            long lastModifiedMs   // captured at plan time; apply rejects if the file changed since
     ) {
     }
 }

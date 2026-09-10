@@ -41,6 +41,24 @@ html[data-theme='dark'] {
   --color-code-bg: #0a0e14;
   --color-code-border: #232a35;
   --color-code-header-bg: #131920;
+  // Foreground for text ON the code surface. --color-code-bg is dark in BOTH
+  // themes, so unlike --color-text-primary this stays light-on-dark always.
+  --color-code-text: #c9d1d9;
+
+  // Diff rendering (edit review). The diff always sits on a dark code surface
+  // (--color-code-bg is dark in BOTH themes), so one set of tints is legible
+  // in light and dark alike. Additions/removals are never colour-only — the
+  // edit-diff component also renders a +/- gutter sign and a coloured left
+  // border — but these keep the two obvious at a glance for everyone else.
+  --color-diff-add-bg: rgba(63, 185, 80, 0.15);
+  --color-diff-add-border: #3fb950;
+  --color-diff-add-text: #7ee787;
+  --color-diff-del-bg: rgba(248, 81, 73, 0.15);
+  --color-diff-del-border: #f85149;
+  --color-diff-del-text: #ffa198;
+  --color-diff-hunk-bg: rgba(88, 166, 255, 0.1);
+  --color-diff-hunk-text: #a5d6ff;
+  --color-diff-meta-text: #8b949e;
 
   // Shape / elevation
   --radius-sm: 6px;

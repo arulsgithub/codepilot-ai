@@ -24,6 +24,8 @@ export class ChatHeaderComponent {
   @Output() repositoryPanelRequested = new EventEmitter<void>();
   /** User clicked the detach (✕) affordance on the repo chip. */
   @Output() repositoryDetached = new EventEmitter<void>();
+  /** User wants to open the AI code-editing modal. */
+  @Output() editPanelRequested = new EventEmitter<void>();
 
   get repositoryName(): string {
     if (!this.repositoryRoot) {

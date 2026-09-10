@@ -1,11 +1,11 @@
 package com.codepilot.edit.service;
 
-import com.codepilot.ai.model.ModelMode;
-import com.codepilot.ai.model.ModelRouter;
-import com.codepilot.ai.model.ResolvedModel;
 import com.codepilot.ai.dto.LLMMessage;
 import com.codepilot.ai.dto.LLMRequest;
 import com.codepilot.ai.dto.LLMResponse;
+import com.codepilot.ai.model.ModelMode;
+import com.codepilot.ai.model.ModelRouter;
+import com.codepilot.ai.model.ResolvedModel;
 import com.codepilot.ai.prompt.PromptBuilder;
 import com.codepilot.edit.dto.EditPlan;
 import com.codepilot.edit.dto.EditPlanResponse;
@@ -37,9 +37,12 @@ public class EditPlannerService {
     private final EditValidator validator;
     private final DiffService diffService;
 
-    public EditPlannerService(RetrievalService retrievalService, PromptBuilder promptBuilder,
-                              ModelRouter modelRouter, EditBlockParser parser,
-                              EditValidator validator, DiffService diffService) {
+    public EditPlannerService(RetrievalService retrievalService,
+                              PromptBuilder promptBuilder,
+                              ModelRouter modelRouter,
+                              EditBlockParser parser,
+                              EditValidator validator,
+                              DiffService diffService) {
         this.retrievalService = retrievalService;
         this.promptBuilder = promptBuilder;
         this.modelRouter = modelRouter;
@@ -69,9 +72,11 @@ public class EditPlannerService {
         LLMResponse response = resolved.client().chat(
                 new LLMRequest(resolved.model(), messages, 0.0, false));
 
-        if (response == null || response.choices() == null || response.choices().isEmpty()) {
+        if (response == null || response.choices() == null || response.choices().isEmpty()
+                || response.choices().getFirst().message() == null) {
             throw new IllegalStateException("AI provider returned an empty response");
         }
+
         String raw = response.choices().getFirst().message().content();
         EditPlan plan = parser.parse(raw);
 
@@ -93,7 +98,7 @@ public class EditPlannerService {
                 allValid = false;
                 previews.add(new EditPlanResponse.EditPreview(
                         edit.relativeFilePath(), false, problem, null,
-                        edit.searchText(), edit.replaceText()));
+                        edit.searchText(), edit.replaceText(), 0L));
                 continue;
             }
             try {
@@ -103,12 +108,13 @@ public class EditPlannerService {
                 previews.add(new EditPlanResponse.EditPreview(
                         edit.relativeFilePath(), true, null,
                         diffService.unifiedDiff(edit.relativeFilePath(), before, after),
-                        edit.searchText(), edit.replaceText()));
+                        edit.searchText(), edit.replaceText(),
+                        Files.getLastModifiedTime(target).toMillis()));
             } catch (IOException e) {
                 allValid = false;
                 previews.add(new EditPlanResponse.EditPreview(
                         edit.relativeFilePath(), false, "Could not read file: " + e.getMessage(),
-                        null, edit.searchText(), edit.replaceText()));
+                        null, edit.searchText(), edit.replaceText(), 0L));
             }
         }
 

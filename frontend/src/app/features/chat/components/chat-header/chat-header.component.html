@@ -13,6 +13,15 @@
   </div>
 
   <div class="header-right">
+    <button
+      type="button"
+      class="repo-attach edit-code-button"
+      title="Describe a code change for CodePilot to plan and apply"
+      (click)="editPanelRequested.emit()"
+    >
+      <span class="repo-icon" aria-hidden="true">✎</span> Edit code
+    </button>
+
     @if (repositoryRoot) {
       <span class="repo-chip" [class.repo-chip--indexing]="isIndexing">
         <button

@@ -1,0 +1,267 @@
+@if (open) {
+  <div class="panel-scrim" role="presentation" (click)="close()">
+    <div
+      class="panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="edit-panel-title"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="panel-header">
+        <h2 id="edit-panel-title">Edit code with AI</h2>
+        <button type="button" class="panel-close" aria-label="Close" (click)="close()">✕</button>
+      </div>
+
+      <!-- ---------- No repository attached ---------- -->
+      @if (!state.hasRepository()) {
+        <p class="panel-intro">
+          AI editing works against an indexed repository — it needs your real
+          code to plan a safe change. Attach a repository first, then come back
+          here to describe the edit you want.
+        </p>
+        <div class="panel-actions">
+          <span class="spacer"></span>
+          <button type="button" class="btn btn--secondary" (click)="close()">Close</button>
+          <button type="button" class="btn btn--primary" (click)="requestAttachRepo()">
+            Attach a repository
+          </button>
+        </div>
+      } @else {
+        <!-- ---------- Instruction entry (idle / error / conflict all show the form context) ---------- -->
+        @if (state.state() === 'idle' || state.state() === 'error') {
+          <p class="panel-intro">
+            Describe the change in plain language. CodePilot reasons about it
+            against
+            <code class="inline-code">{{ state.repositoryRoot() }}</code>
+            and shows you every proposed diff before anything is written.
+          </p>
+
+          <label class="field-label" for="edit-instruction-input">Instruction</label>
+          <textarea
+            id="edit-instruction-input"
+            class="field-input"
+            rows="3"
+            placeholder="e.g. add null-checking to ChatService.chat"
+            spellcheck="false"
+            [(ngModel)]="draft"
+            (keydown.enter)="$event.preventDefault(); submitInstruction()"
+          ></textarea>
+
+          @if (state.state() === 'error') {
+            <div class="status status--error" role="alert">
+              <span aria-hidden="true">⚠</span>
+              <span>{{ state.errorMessage() }}</span>
+            </div>
+          }
+
+          <div class="panel-actions">
+            <span class="spacer"></span>
+            <button type="button" class="btn btn--secondary" (click)="close()">Close</button>
+            @if (state.state() === 'error') {
+              <button type="button" class="btn btn--secondary" (click)="planAgain()">
+                Try again
+              </button>
+            }
+            <button
+              type="button"
+              class="btn btn--primary"
+              [disabled]="!draft.trim() || state.isBusy()"
+              (click)="submitInstruction()"
+            >
+              Plan edit
+            </button>
+          </div>
+        }
+
+        <!-- ---------- Planning (10–40s) ---------- -->
+        @if (state.state() === 'planning') {
+          <div class="status status--working" role="status" aria-live="polite">
+            <span class="spinner" aria-hidden="true"></span>
+            <span>
+              Planning your edit — this runs a reasoning model and usually takes
+              10–40 seconds.
+              <strong>{{ planElapsedSeconds() }}s elapsed.</strong>
+              You can keep using the app; this window updates when it finishes.
+            </span>
+          </div>
+          <p class="planning-instruction">
+            <span class="eyebrow">Instruction</span>
+            <span>{{ state.instruction() }}</span>
+          </p>
+          <div class="panel-actions">
+            <span class="spacer"></span>
+            <button type="button" class="btn btn--secondary" (click)="close()">
+              Hide (keeps planning)
+            </button>
+            <button type="button" class="btn btn--ghost" (click)="discard()">Cancel</button>
+          </div>
+        }
+
+        <!-- ---------- Reviewing the plan ---------- -->
+        @if (state.state() === 'reviewing' && state.plan(); as plan) {
+          <div class="review">
+            <div class="review-summary">
+              <span class="eyebrow">Proposed change</span>
+              <p class="review-summary-text">{{ plan.summary }}</p>
+            </div>
+
+            @if (plan.previews.length === 0) {
+              <div class="status status--error" role="status">
+                <span aria-hidden="true">∅</span>
+                <span>
+                  The model did not produce any applicable edits. Try rephrasing
+                  the instruction with a specific file or method.
+                </span>
+              </div>
+            }
+
+            @if (!plan.applicable && plan.previews.length > 0) {
+              <div class="status status--error" role="alert">
+                <span aria-hidden="true">⚠</span>
+                <span>
+                  Some proposed edits can’t be applied (see the blocked files
+                  below). Applying is all-or-nothing, so Apply is disabled until
+                  every edit is valid. Re-plan to try again.
+                </span>
+              </div>
+            }
+
+            <ul class="preview-list">
+              @for (preview of plan.previews; track trackByPreview($index, preview)) {
+                <li class="preview" [class.preview--blocked]="!preview.valid">
+                  <details class="preview-disclosure" [open]="preview.valid">
+                    <summary class="preview-summary">
+                      <span
+                        class="preview-badge"
+                        [class.preview-badge--ok]="preview.valid"
+                        [class.preview-badge--blocked]="!preview.valid"
+                      >
+                        {{ preview.valid ? 'diff' : 'blocked' }}
+                      </span>
+                      <code class="preview-path">{{ preview.relativeFilePath }}</code>
+                    </summary>
+
+                    @if (preview.valid && preview.unifiedDiff) {
+                      <app-edit-diff [unifiedDiff]="preview.unifiedDiff" />
+                    } @else {
+                      <div class="preview-problem" role="alert">
+                        <span class="preview-problem-title">This edit can’t be applied</span>
+                        <span>{{ preview.problem }}</span>
+                      </div>
+                    }
+                  </details>
+                </li>
+              }
+            </ul>
+          </div>
+
+          @if (pendingConfirm()) {
+            <div class="confirm" role="alertdialog" aria-labelledby="edit-confirm-title">
+              <span id="edit-confirm-title" class="confirm-title">
+                Write {{ validPreviewCount() }}
+                {{ validPreviewCount() === 1 ? 'file' : 'files' }} to disk?
+              </span>
+              <p class="confirm-body">
+                This modifies your real files under
+                <code class="inline-code">{{ state.repositoryRoot() }}</code
+                >. Originals are backed up first, and the change can be undone
+                from that backup.
+              </p>
+              <div class="confirm-actions">
+                <button type="button" class="btn btn--secondary" (click)="cancelApply()">
+                  Cancel
+                </button>
+                <button type="button" class="btn btn--danger" (click)="confirmApply()">
+                  Yes, apply to disk
+                </button>
+              </div>
+            </div>
+          } @else {
+            <div class="panel-actions">
+              <button type="button" class="btn btn--ghost" (click)="discard()">Discard</button>
+              <span class="spacer"></span>
+              <button type="button" class="btn btn--secondary" (click)="planAgain()">
+                Plan again
+              </button>
+              @if (state.canApply()) {
+                <button type="button" class="btn btn--danger" (click)="requestApply()">
+                  Apply {{ validPreviewCount() }}
+                  {{ validPreviewCount() === 1 ? 'change' : 'changes' }}…
+                </button>
+              } @else {
+                <button type="button" class="btn btn--danger" disabled>
+                  Apply (blocked)
+                </button>
+              }
+            </div>
+          }
+        }
+
+        <!-- ---------- Applying (writing) ---------- -->
+        @if (state.state() === 'applying') {
+          <div class="status status--working" role="status" aria-live="polite">
+            <span class="spinner" aria-hidden="true"></span>
+            <span>Writing the approved changes to disk and re-indexing…</span>
+          </div>
+        }
+
+        <!-- ---------- Applied (success) ---------- -->
+        @if (state.state() === 'applied' && state.applyResult(); as result) {
+          <div class="status status--ok" role="status">
+            <span aria-hidden="true">✓</span>
+            <span>{{ result.message }}</span>
+          </div>
+
+          @if (result.changedFiles.length > 0) {
+            <div class="result-block">
+              <span class="eyebrow">Changed files</span>
+              <ul class="result-files">
+                @for (file of result.changedFiles; track file) {
+                  <li><code>{{ file }}</code></li>
+                }
+              </ul>
+            </div>
+          }
+
+          @if (result.backupLocation) {
+            <div class="result-block">
+              <span class="eyebrow">Backup (for manual undo)</span>
+              <code class="result-backup">{{ result.backupLocation }}</code>
+            </div>
+          }
+
+          <div class="panel-actions">
+            <span class="spacer"></span>
+            <button type="button" class="btn btn--primary" (click)="finishAfterApply()">Done</button>
+          </div>
+        }
+
+        <!-- ---------- Conflict (409 — nothing written) ---------- -->
+        @if (state.state() === 'conflict') {
+          <div class="status status--error" role="alert">
+            <span aria-hidden="true">⚠</span>
+            <span>
+              Nothing was written. The files changed since this edit was planned
+              — most often because they were edited in an IDE in the meantime.
+            </span>
+          </div>
+
+          <div class="result-block">
+            <span class="eyebrow">What blocked it</span>
+            <ul class="problem-list">
+              @for (problem of state.conflictProblems(); track problem) {
+                <li>{{ problem }}</li>
+              }
+            </ul>
+          </div>
+
+          <div class="panel-actions">
+            <button type="button" class="btn btn--ghost" (click)="discard()">Discard</button>
+            <span class="spacer"></span>
+            <button type="button" class="btn btn--primary" (click)="planAgain()">Plan again</button>
+          </div>
+        }
+      }
+    </div>
+  </div>
+}

@@ -1,0 +1,15 @@
+<div class="diff" role="figure" aria-label="Unified diff">
+  @for (line of lines; track trackByIndex($index)) {
+    <div
+      class="diff-line"
+      [class.diff-line--add]="line.kind === 'add'"
+      [class.diff-line--del]="line.kind === 'del'"
+      [class.diff-line--hunk]="line.kind === 'hunk'"
+      [class.diff-line--file]="line.kind === 'file'"
+      [class.diff-line--meta]="line.kind === 'meta'"
+    >
+      <span class="diff-sign" aria-hidden="true">{{ line.sign }}</span
+      ><span class="diff-text">{{ line.text }}</span>
+    </div>
+  }
+</div>
