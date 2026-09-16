@@ -26,6 +26,8 @@ export class ChatHeaderComponent {
   @Output() repositoryDetached = new EventEmitter<void>();
   /** User wants to open the AI code-editing modal. */
   @Output() editPanelRequested = new EventEmitter<void>();
+  /** User wants to open the command palette (mouse-only entry point; Ctrl/Cmd+K is the primary one). */
+  @Output() commandPaletteRequested = new EventEmitter<void>();
 
   get repositoryName(): string {
     if (!this.repositoryRoot) {

@@ -1,0 +1,56 @@
+@if (open) {
+  <div class="palette-scrim" role="presentation" (click)="onScrimClick()">
+    <div
+      class="palette"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Command palette"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="palette-input-row">
+        <span class="palette-icon" aria-hidden="true">⌘</span>
+        <input
+          #inputRef
+          type="text"
+          class="palette-input"
+          role="combobox"
+          aria-expanded="true"
+          aria-controls="palette-listbox"
+          [attr.aria-activedescendant]="results[activeIndex] ? 'palette-option-' + activeIndex : null"
+          autocomplete="off"
+          placeholder="Type a command or search conversations…"
+          [(ngModel)]="query"
+          (ngModelChange)="onQueryChange()"
+          (keydown)="onKeydown($event)"
+        />
+        <kbd class="palette-esc">Esc</kbd>
+      </div>
+
+      <ul class="palette-list" id="palette-listbox" role="listbox">
+        @if (results.length === 0) {
+          <li class="palette-empty">No matching commands or conversations.</li>
+        }
+        @for (command of results; track trackByCommand($index, command); let i = $index) {
+          <li
+            [id]="'palette-option-' + i"
+            role="option"
+            [attr.aria-selected]="i === activeIndex"
+            class="palette-item"
+            [class.palette-item--active]="i === activeIndex"
+            (mouseenter)="activeIndex = i"
+            (click)="select(i)"
+          >
+            <span class="palette-item-label">{{ command.label }}</span>
+            <span class="palette-item-hint">{{ command.hint }}</span>
+          </li>
+        }
+      </ul>
+
+      <div class="palette-footer">
+        <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+        <span><kbd>Enter</kbd> select</span>
+        <span><kbd>Esc</kbd> close</span>
+      </div>
+    </div>
+  </div>
+}

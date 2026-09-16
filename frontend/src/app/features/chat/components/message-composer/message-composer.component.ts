@@ -71,6 +71,11 @@ export class MessageComposerComponent {
     this.textareaRef?.nativeElement.focus();
   }
 
+  /** Focuses the composer without changing its content — e.g. from the command palette. */
+  focus(): void {
+    this.textareaRef?.nativeElement.focus();
+  }
+
   private autoGrow(): void {
     const el = this.textareaRef?.nativeElement;
     if (!el) {

@@ -1,0 +1,31 @@
+@if (open) {
+  <div class="dialog-scrim" role="presentation" (click)="close()">
+    <div
+      class="dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="shortcuts-title"
+      tabindex="-1"
+      (click)="$event.stopPropagation()"
+      (keydown)="onKeydown($event)"
+    >
+      <div class="dialog-header">
+        <h2 id="shortcuts-title">Keyboard shortcuts</h2>
+        <button type="button" class="dialog-close" aria-label="Close" (click)="close()">✕</button>
+      </div>
+
+      <ul class="shortcut-list">
+        @for (shortcut of shortcuts; track shortcut.description) {
+          <li class="shortcut-row">
+            <span class="shortcut-description">{{ shortcut.description }}</span>
+            <span class="shortcut-keys">
+              @for (key of shortcut.keys; track key) {
+                <kbd>{{ key }}</kbd>
+              }
+            </span>
+          </li>
+        }
+      </ul>
+    </div>
+  </div>
+}

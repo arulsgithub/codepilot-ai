@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Conversation } from '../../../../core/models/conversation.model';
 import {
   ConversationItemComponent,
@@ -15,7 +16,7 @@ interface ConversationGroup {
 @Component({
   selector: 'app-conversation-sidebar',
   standalone: true,
-  imports: [CommonModule, ConversationItemComponent],
+  imports: [CommonModule, FormsModule, ConversationItemComponent],
   templateUrl: './conversation-sidebar.component.html',
   styleUrl: './conversation-sidebar.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -23,7 +24,7 @@ interface ConversationGroup {
 export class ConversationSidebarComponent {
   @Input() set conversations(value: Conversation[]) {
     this._conversations = value;
-    this.groups = this.groupByRecency(value);
+    this.refreshGroups();
   }
   get conversations(): Conversation[] {
     return this._conversations;
@@ -34,16 +35,35 @@ export class ConversationSidebarComponent {
   @Input() loading = false;
   /** Whether the sidebar is shown as an open mobile drawer. */
   @Input() open = false;
+  /**
+   * Desktop-only collapsed ("rail") state. Independent of `open` — on mobile
+   * the sidebar is always either an off-canvas drawer (open) or hidden
+   * entirely, collapse never applies there.
+   */
+  @Input() collapsed = false;
 
   @Output() newChatRequested = new EventEmitter<void>();
   @Output() conversationSelected = new EventEmitter<Conversation>();
   @Output() conversationDeleted = new EventEmitter<Conversation>();
   @Output() conversationRenamed = new EventEmitter<ConversationRename>();
   @Output() closeRequested = new EventEmitter<void>();
+  @Output() collapseToggled = new EventEmitter<void>();
 
   groups: ConversationGroup[] = [];
 
   pendingDeleteConversation: Conversation | null = null;
+
+  /** Client-side title filter — conversation history is small enough that a server round trip isn't warranted. */
+  searchQuery = '';
+
+  onSearchChange(): void {
+    this.refreshGroups();
+  }
+
+  clearSearch(): void {
+    this.searchQuery = '';
+    this.refreshGroups();
+  }
 
   requestDelete(conversation: Conversation): void {
     this.pendingDeleteConversation = conversation;
@@ -58,6 +78,14 @@ export class ConversationSidebarComponent {
 
   cancelDelete(): void {
     this.pendingDeleteConversation = null;
+  }
+
+  private refreshGroups(): void {
+    const query = this.searchQuery.trim().toLowerCase();
+    const filtered = query
+      ? this._conversations.filter((c) => c.title.toLowerCase().includes(query))
+      : this._conversations;
+    this.groups = this.groupByRecency(filtered);
   }
 
   private groupByRecency(conversations: Conversation[]): ConversationGroup[] {

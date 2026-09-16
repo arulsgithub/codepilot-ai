@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, OnInit, ViewChild, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  HostListener,
+  OnInit,
+  ViewChild,
+  inject,
+  signal,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ChatStateService } from '../../services/chat-state.service';
 import { ConversationSidebarComponent } from '../../../conversations/components/conversation-sidebar/conversation-sidebar.component';
@@ -9,11 +17,15 @@ import { WelcomeScreenComponent } from '../welcome-screen/welcome-screen.compone
 import { ModeSelectorComponent } from '../mode-selector/mode-selector.component';
 import { RepositoryPanelComponent } from '../repository-panel/repository-panel.component';
 import { EditPanelComponent } from '../edit-panel/edit-panel.component';
+import { CommandPaletteComponent } from '../command-palette/command-palette.component';
+import { ShortcutsDialogComponent } from '../shortcuts-dialog/shortcuts-dialog.component';
 import { ConversationRename } from '../../../conversations/components/conversation-item/conversation-item.component';
 import { Conversation } from '../../../../core/models/conversation.model';
 import { ModeSelection } from '../../../../core/models/chat.model';
 
 const THEME_STORAGE_KEY = 'codepilot-theme';
+const SIDEBAR_COLLAPSED_STORAGE_KEY = 'codepilot-sidebar-collapsed';
+const HINTS_DISMISSED_STORAGE_KEY = 'codepilot-onboarding-hints-dismissed';
 
 /**
  * Top-level page component for Phase 1. Owns:
@@ -37,6 +49,8 @@ const THEME_STORAGE_KEY = 'codepilot-theme';
     ModeSelectorComponent,
     RepositoryPanelComponent,
     EditPanelComponent,
+    CommandPaletteComponent,
+    ShortcutsDialogComponent,
   ],
   templateUrl: './chat-page.component.html',
   styleUrl: './chat-page.component.scss',
@@ -48,13 +62,79 @@ export class ChatPageComponent implements OnInit {
   @ViewChild(MessageComposerComponent) composer?: MessageComposerComponent;
 
   sidebarOpen = signal(false);
+  sidebarCollapsed = signal(this.readStoredSidebarCollapsed());
   repositoryPanelOpen = signal(false);
   editPanelOpen = signal(false);
+  commandPaletteOpen = signal(false);
+  shortcutsDialogOpen = signal(false);
   theme = signal<'dark' | 'light'>(this.readStoredTheme());
+  hintsDismissed = signal(this.readStoredHintsDismissed());
 
   ngOnInit(): void {
     this.applyTheme(this.theme());
     this.state.loadConversations();
+  }
+
+  /**
+   * App-wide keyboard shortcuts. Deliberately narrow: only combinations that
+   * browsers don't already own (Ctrl/Cmd+K, Ctrl/Cmd+B) plus the bare `?`
+   * and `Escape`, and `?` is ignored while the user is typing anywhere so it
+   * never hijacks a literal question mark in the composer or a rename field.
+   */
+  @HostListener('document:keydown', ['$event'])
+  onGlobalKeydown(event: KeyboardEvent): void {
+    const isMod = event.ctrlKey || event.metaKey;
+
+    if (isMod && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      this.commandPaletteOpen.set(true);
+      return;
+    }
+    if (isMod && event.key.toLowerCase() === 'b') {
+      event.preventDefault();
+      this.toggleSidebarCollapsed();
+      return;
+    }
+    if (event.key === '?' && !this.isTypingTarget(event.target) && !this.commandPaletteOpen()) {
+      event.preventDefault();
+      this.shortcutsDialogOpen.set(true);
+      return;
+    }
+  }
+
+  private isTypingTarget(target: EventTarget | null): boolean {
+    const el = target as HTMLElement | null;
+    if (!el) {
+      return false;
+    }
+    const tag = el.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable;
+  }
+
+  // ---------------------------------------------------------------------
+  // Command palette
+  // ---------------------------------------------------------------------
+
+  closeCommandPalette(): void {
+    this.commandPaletteOpen.set(false);
+  }
+
+  onPaletteFocusComposer(): void {
+    this.commandPaletteOpen.set(false);
+    setTimeout(() => this.composer?.focus());
+  }
+
+  // ---------------------------------------------------------------------
+  // Onboarding hints
+  // ---------------------------------------------------------------------
+
+  dismissHints(): void {
+    this.hintsDismissed.set(true);
+    try {
+      localStorage.setItem(HINTS_DISMISSED_STORAGE_KEY, '1');
+    } catch {
+      // Private-browsing — the hint just reappears next visit, harmless.
+    }
   }
 
   onNewChat(): void {
@@ -142,6 +222,16 @@ export class ChatPageComponent implements OnInit {
     this.sidebarOpen.update((open) => !open);
   }
 
+  toggleSidebarCollapsed(): void {
+    const next = !this.sidebarCollapsed();
+    this.sidebarCollapsed.set(next);
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, next ? '1' : '0');
+    } catch {
+      // Storage unavailable — the collapsed state just won't survive a reload.
+    }
+  }
+
   toggleTheme(): void {
     const next = this.theme() === 'dark' ? 'light' : 'dark';
     this.theme.set(next);
@@ -170,6 +260,22 @@ export class ChatPageComponent implements OnInit {
       return stored === 'light' ? 'light' : 'dark';
     } catch {
       return 'dark';
+    }
+  }
+
+  private readStoredSidebarCollapsed(): boolean {
+    try {
+      return localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  private readStoredHintsDismissed(): boolean {
+    try {
+      return localStorage.getItem(HINTS_DISMISSED_STORAGE_KEY) === '1';
+    } catch {
+      return false;
     }
   }
 }

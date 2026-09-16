@@ -15,6 +15,14 @@
   <div class="header-right">
     <button
       type="button"
+      class="repo-attach"
+      title="Command palette (Ctrl/⌘+K)"
+      (click)="commandPaletteRequested.emit()"
+    >
+      <span aria-hidden="true">⌘K</span>
+    </button>
+    <button
+      type="button"
       class="repo-attach edit-code-button"
       title="Describe a code change for CodePilot to plan and apply"
       (click)="editPanelRequested.emit()"

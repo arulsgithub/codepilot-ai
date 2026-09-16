@@ -8,7 +8,29 @@
     (repositoryPanelRequested)="openRepositoryPanel()"
     (repositoryDetached)="onDetachRepository()"
     (editPanelRequested)="openEditPanel()"
+    (commandPaletteRequested)="commandPaletteOpen.set(true)"
   />
+
+  @if (state.selectedConversation() && !hintsDismissed()) {
+    <div class="onboarding-hint" role="note">
+      @if (state.repositoryAttached()) {
+        <span>
+          <strong>Tip:</strong> the <em>mode</em> selector trades speed for depth, hovering a
+          message reveals quick actions, and "Edit code" plans a reviewed diff before writing
+          anything. Press <kbd>Ctrl/⌘</kbd>+<kbd>K</kbd> for the command palette.
+        </span>
+      } @else {
+        <span>
+          <strong>Tip:</strong> attach a repository (top right) to ground answers — and enable
+          AI editing — in your actual code. Press <kbd>Ctrl/⌘</kbd>+<kbd>K</kbd> for the command
+          palette.
+        </span>
+      }
+      <button type="button" class="onboarding-hint-dismiss" aria-label="Dismiss tip" (click)="dismissHints()">
+        Got it
+      </button>
+    </div>
+  }
 
   <div class="page-body">
     <app-conversation-sidebar
@@ -16,11 +38,13 @@
       [selectedConversationId]="state.selectedConversation()?.id ?? null"
       [loading]="state.conversationsLoading()"
       [open]="sidebarOpen()"
+      [collapsed]="sidebarCollapsed()"
       (newChatRequested)="onNewChat()"
       (conversationSelected)="onSelectConversation($event)"
       (conversationDeleted)="onDeleteConversation($event)"
       (conversationRenamed)="onRenameConversation($event)"
       (closeRequested)="sidebarOpen.set(false)"
+      (collapseToggled)="toggleSidebarCollapsed()"
     />
 
     <main class="chat-area">
@@ -81,5 +105,25 @@
     [open]="editPanelOpen()"
     (attachRepoRequested)="onEditPanelAttachRepo()"
     (closeRequested)="closeEditPanel()"
+  />
+
+  <app-command-palette
+    [open]="commandPaletteOpen()"
+    [conversations]="state.conversations()"
+    [theme]="theme()"
+    (closeRequested)="closeCommandPalette()"
+    (newChatRequested)="onNewChat()"
+    (conversationSelected)="onSelectConversation($event)"
+    (themeToggleRequested)="toggleTheme()"
+    (attachRepoRequested)="openRepositoryPanel()"
+    (editPanelRequested)="openEditPanel()"
+    (modeChangeRequested)="onModeChange($event)"
+    (focusComposerRequested)="onPaletteFocusComposer()"
+    (shortcutsRequested)="shortcutsDialogOpen.set(true)"
+  />
+
+  <app-shortcuts-dialog
+    [open]="shortcutsDialogOpen()"
+    (closeRequested)="shortcutsDialogOpen.set(false)"
   />
 </div>

@@ -3,7 +3,9 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  EventEmitter,
   Input,
+  Output,
   ViewChild,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -34,12 +36,43 @@ import { MessageSourcesComponent } from '../message-sources/message-sources.comp
 export class MessageItemComponent implements AfterViewChecked {
   @Input({ required: true }) message!: ChatMessageViewModel;
 
+  /** Emitted when the user clicks "Regenerate" — parent owns retrying the turn. */
+  @Output() regenerateRequested = new EventEmitter<void>();
+
   @ViewChild('contentRef') contentRef?: ElementRef<HTMLElement>;
 
   private enhancedBlocks = new WeakSet<Element>();
 
+  copyState: 'idle' | 'copied' | 'failed' = 'idle';
+  private copyResetTimer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor(private readonly elementRef: ElementRef<HTMLElement>) {}
+
   ngAfterViewChecked(): void {
     this.enhanceCodeBlocks();
+  }
+
+  /** Copies the raw (un-rendered) message text — hover action, all roles. */
+  copyMessage(): void {
+    navigator.clipboard
+      .writeText(this.message.content)
+      .then(() => this.flashCopyState('copied'))
+      .catch(() => this.flashCopyState('failed'));
+  }
+
+  /** Re-centers this message in the scroll container — hover action, all roles. */
+  scrollToThis(): void {
+    this.elementRef.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  private flashCopyState(state: 'copied' | 'failed'): void {
+    this.copyState = state;
+    if (this.copyResetTimer) {
+      clearTimeout(this.copyResetTimer);
+    }
+    this.copyResetTimer = setTimeout(() => {
+      this.copyState = 'idle';
+    }, 1500);
   }
 
   private enhanceCodeBlocks(): void {

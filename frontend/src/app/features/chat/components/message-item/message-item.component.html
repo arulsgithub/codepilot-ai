@@ -4,9 +4,42 @@
   [class.message-row--assistant]="message.role === 'ASSISTANT'"
 >
   <div class="message-bubble" [class.message-bubble--error]="message.isError">
-    @if (message.role === 'ASSISTANT') {
-      <div class="message-author">CodePilot</div>
-    }
+    <div class="message-toolbar">
+      @if (message.role === 'ASSISTANT') {
+        <div class="message-author">CodePilot</div>
+      }
+      <div class="message-actions">
+        <button
+          type="button"
+          class="message-action"
+          [attr.aria-label]="copyState === 'copied' ? 'Copied' : 'Copy message'"
+          [attr.title]="copyState === 'copied' ? 'Copied' : 'Copy message'"
+          (click)="copyMessage()"
+        >
+          {{ copyState === 'copied' ? '✓ Copied' : copyState === 'failed' ? 'Failed' : 'Copy' }}
+        </button>
+        @if (message.role === 'ASSISTANT' && message.isError) {
+          <button
+            type="button"
+            class="message-action"
+            aria-label="Regenerate this response"
+            title="Regenerate this response"
+            (click)="regenerateRequested.emit()"
+          >
+            Regenerate
+          </button>
+        }
+        <button
+          type="button"
+          class="message-action"
+          aria-label="Scroll to this message"
+          title="Scroll to this message"
+          (click)="scrollToThis()"
+        >
+          ⌖
+        </button>
+      </div>
+    </div>
 
     @if (message.role === 'USER') {
       <div class="message-content message-content--plain">{{ message.content }}</div>

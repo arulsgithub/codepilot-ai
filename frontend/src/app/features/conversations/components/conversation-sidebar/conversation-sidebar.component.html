@@ -2,37 +2,74 @@
   <div class="sidebar-scrim" (click)="closeRequested.emit()"></div>
 }
 
-<aside class="sidebar" [class.sidebar--open]="open">
-  <button type="button" class="new-chat-button" (click)="newChatRequested.emit()">
-    <span aria-hidden="true">+</span> New Chat
-  </button>
+<aside class="sidebar" [class.sidebar--open]="open" [class.sidebar--collapsed]="collapsed">
+  <div class="sidebar-top">
+    <button
+      type="button"
+      class="new-chat-button"
+      [attr.title]="collapsed ? 'New Chat' : null"
+      (click)="newChatRequested.emit()"
+    >
+      <span aria-hidden="true">+</span>
+      @if (!collapsed) {
+        <span>New Chat</span>
+      }
+    </button>
+    <button
+      type="button"
+      class="collapse-toggle"
+      [attr.aria-label]="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+      [attr.title]="(collapsed ? 'Expand sidebar' : 'Collapse sidebar') + ' (Ctrl+B)'"
+      (click)="collapseToggled.emit()"
+    >
+      <span aria-hidden="true">{{ collapsed ? '»' : '«' }}</span>
+    </button>
+  </div>
 
-  <div class="conversation-scroll">
-    @if (loading) {
-      <div class="skeleton-group">
-        @for (i of [1, 2, 3, 4]; track i) {
-          <div class="skeleton-item"></div>
-        }
-      </div>
-    } @else if (conversations.length === 0) {
-      <p class="empty-hint">No conversations yet. Start a new chat to begin.</p>
-    } @else {
-      @for (group of groups; track group.label) {
-        <div class="conversation-group">
-          <h2 class="group-label">{{ group.label }}</h2>
-          @for (conversation of group.conversations; track conversation.id) {
-            <app-conversation-item
-              [conversation]="conversation"
-              [active]="conversation.id === selectedConversationId"
-              (selected)="conversationSelected.emit($event)"
-              (deleteRequested)="requestDelete($event)"
-              (renameRequested)="conversationRenamed.emit($event)"
-            />
+  @if (!collapsed) {
+    <div class="sidebar-search">
+      <input
+        type="search"
+        class="search-input"
+        placeholder="Search conversations"
+        aria-label="Search conversations"
+        [(ngModel)]="searchQuery"
+        (ngModelChange)="onSearchChange()"
+      />
+    </div>
+
+    <div class="conversation-scroll">
+      @if (loading) {
+        <div class="skeleton-group">
+          @for (i of [1, 2, 3, 4]; track i) {
+            <div class="skeleton-item"></div>
           }
         </div>
+      } @else if (conversations.length === 0) {
+        <p class="empty-hint">No conversations yet. Start a new chat to begin.</p>
+      } @else if (groups.length === 0) {
+        <p class="empty-hint">
+          No conversations match "{{ searchQuery }}".
+          <button type="button" class="clear-search-link" (click)="clearSearch()">Clear search</button>
+        </p>
+      } @else {
+        @for (group of groups; track group.label) {
+          <div class="conversation-group">
+            <h2 class="group-label">{{ group.label }}</h2>
+            @for (conversation of group.conversations; track conversation.id) {
+              <app-conversation-item
+                [conversation]="conversation"
+                [active]="conversation.id === selectedConversationId"
+                (selected)="conversationSelected.emit($event)"
+                (deleteRequested)="requestDelete($event)"
+                (renameRequested)="conversationRenamed.emit($event)"
+              />
+            }
+          </div>
+        }
       }
-    }
-  </div>
+    </div>
+  }
 </aside>
 
 @if (pendingDeleteConversation) {

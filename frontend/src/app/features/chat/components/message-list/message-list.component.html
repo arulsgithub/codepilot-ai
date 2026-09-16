@@ -7,9 +7,13 @@
         </div>
       }
     </div>
+  } @else if (messages.length === 0) {
+    <div class="empty-conversation">
+      <p>No messages yet. Say hello below to get started.</p>
+    </div>
   } @else {
     @for (message of messages; track trackByClientId($index, message)) {
-      <app-message-item [message]="message" />
+      <app-message-item [message]="message" (regenerateRequested)="retryRequested.emit()" />
     }
 
     @if (showThinkingIndicator) {
@@ -25,4 +29,21 @@
       </div>
     }
   }
+</div>
+
+@if (showScrollToBottom) {
+  <button
+    type="button"
+    class="scroll-to-bottom"
+    aria-label="Scroll to latest message"
+    (click)="scrollToBottomClicked()"
+  >
+    ↓ New messages
+  </button>
+}
+
+<!-- Polite live region for streaming updates: announced once per completed
+     reply, never per-token, so a screen reader isn't spammed mid-stream. -->
+<div class="sr-only" aria-live="polite" role="status">
+  {{ liveRegionMessage }}
 </div>

@@ -18,6 +18,43 @@
   background: var(--color-bg);
 }
 
+.onboarding-hint {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 16px;
+  background: var(--color-diff-hunk-bg);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+
+  kbd {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+}
+
+.onboarding-hint-dismiss {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-surface-hover);
+  }
+}
+
 .connection-banner {
   flex-shrink: 0;
   background: var(--color-danger-bg);
