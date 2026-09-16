@@ -6,7 +6,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  padding: 0 var(--space-5);
   border-bottom: 1px solid var(--color-border);
   background: var(--surface-glass);
   backdrop-filter: blur(var(--surface-glass-blur)) saturate(150%);
@@ -16,7 +16,7 @@
 .header-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .menu-button {
@@ -24,8 +24,8 @@
   background: none;
   border: none;
   color: var(--color-text-secondary);
-  font-size: 16px;
-  padding: 6px 8px;
+  font-size: var(--font-size-lg);
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
   cursor: pointer;
 
@@ -34,10 +34,13 @@
   }
 }
 
+// Fixed element dimensions (icon/mark sizes) are intentionally left as
+// literal px here — they size a specific glyph box, not layout rhythm, so
+// they don't belong on the spacing scale.
 .brand-mark {
   font-family: var(--font-mono);
   color: var(--color-accent-contrast);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   background: var(--gradient-accent);
   box-shadow: var(--glow-accent-soft);
@@ -51,7 +54,7 @@
 
 .brand-name {
   font-weight: 700;
-  font-size: 14.5px;
+  font-size: var(--font-size-md);
   letter-spacing: 0.01em;
   background: var(--gradient-accent);
   -webkit-background-clip: text;
@@ -62,16 +65,16 @@
 .header-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
 }
 
 .badge {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-family: var(--font-mono);
   color: var(--color-text-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  padding: 3px 8px;
+  padding: var(--space-1) var(--space-3);
 
   &--muted {
     color: var(--color-text-muted);
@@ -83,10 +86,10 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
-  padding: 5px 9px;
-  font-size: 13px;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
   cursor: pointer;
-  margin-left: 4px;
+  margin-left: var(--space-2);
   transition: background var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
 
   &:hover {
@@ -98,19 +101,19 @@
 
 .repo-icon {
   color: var(--color-accent);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
 }
 
 .repo-attach {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-2);
   background: none;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
-  font-size: 12px;
-  padding: 5px 9px;
+  font-size: var(--font-size-sm);
+  padding: var(--space-2) var(--space-3);
   cursor: pointer;
   transition: background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), color var(--transition-fast);
 
@@ -132,7 +135,7 @@
 }
 
 .edit-code-button .repo-icon {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
 }
 
 .repo-chip {
@@ -152,12 +155,12 @@
 .repo-chip-open {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   background: var(--color-surface);
   border: none;
   color: var(--color-text-primary);
-  font-size: 12px;
-  padding: 5px 9px;
+  font-size: var(--font-size-sm);
+  padding: var(--space-2) var(--space-3);
   cursor: pointer;
   min-width: 0;
 
@@ -191,7 +194,7 @@
 
 .repo-indexing-text {
   color: var(--color-text-muted);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
 }
 
 .repo-chip-detach {
@@ -199,8 +202,8 @@
   border: none;
   border-left: 1px solid var(--color-border);
   color: var(--color-text-muted);
-  font-size: 11px;
-  padding: 0 8px;
+  font-size: var(--font-size-xs);
+  padding: 0 var(--space-3);
   cursor: pointer;
 
   &:hover {

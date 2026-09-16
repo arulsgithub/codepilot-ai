@@ -1,13 +1,13 @@
 :host {
   display: block;
-  margin-top: 10px;
+  margin-top: var(--space-3);
 }
 
 .sources {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   transition: border-color var(--transition-fast);
 
   &[open] {
@@ -18,8 +18,8 @@
 .sources-summary {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   cursor: pointer;
   color: var(--color-text-secondary);
   font-weight: 500;
@@ -37,24 +37,24 @@
 
 .sources-icon {
   color: var(--color-accent-secondary);
-  font-size: 10px;
+  font-size: var(--font-size-xs);
 }
 
 .sources-list {
   margin: 0;
-  padding: 4px 10px 8px;
+  padding: var(--space-2) var(--space-3) var(--space-3);
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-3);
 }
 
 .source-row {
   display: grid;
   grid-template-columns: auto auto;
-  column-gap: 8px;
-  row-gap: 2px;
-  padding: 6px 8px;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
   background: var(--color-bg);
   border: 1px solid var(--color-border);
@@ -63,20 +63,20 @@
 .source-file {
   font-family: var(--font-mono);
   color: var(--color-text-primary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
 }
 
 .source-lines {
   justify-self: end;
   color: var(--color-text-muted);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
 }
 
 .source-path {
   grid-column: 1 / -1;
   color: var(--color-text-muted);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   word-break: break-all;
 }
 
@@ -84,6 +84,6 @@
   grid-column: 1 / -1;
   color: var(--color-text-secondary);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   word-break: break-all;
 }

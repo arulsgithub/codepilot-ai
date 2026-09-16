@@ -116,6 +116,6 @@ kbd {
   background: var(--color-surface);
   border: 1px solid color-mix(in srgb, var(--color-accent) 35%, var(--color-border-strong));
   border-radius: 4px;
-  padding: 1px 5px;
-  margin-right: 2px;
+  padding: var(--space-1) var(--space-2);
+  margin-right: var(--space-1);
 }

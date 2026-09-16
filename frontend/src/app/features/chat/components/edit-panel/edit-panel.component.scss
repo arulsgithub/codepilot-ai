@@ -6,13 +6,13 @@
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 40px 16px;
+  padding: var(--space-8) var(--space-5);
   overflow-y: auto;
 }
 
 .panel {
   width: min(720px, 100%);
-  padding: 20px;
+  padding: var(--space-6);
   background: var(--surface-glass);
   backdrop-filter: blur(var(--surface-glass-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--surface-glass-blur)) saturate(150%);
@@ -25,22 +25,22 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 6px;
+  margin-bottom: var(--space-2);
 }
 
 .panel-header h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--font-size-lg);
   font-weight: 600;
 }
 
 .panel-close {
-  padding: 4px 8px;
+  padding: var(--space-2) var(--space-3);
   background: none;
   border: none;
   border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
-  font-size: 14px;
+  font-size: var(--font-size-md);
   cursor: pointer;
 }
 
@@ -49,16 +49,16 @@
 }
 
 .panel-intro {
-  margin: 0 0 16px;
+  margin: 0 0 var(--space-5);
   color: var(--color-text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   line-height: 1.5;
 }
 
 .eyebrow {
   display: block;
   flex-shrink: 0;
-  font-size: 10.5px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -70,34 +70,36 @@
 .result-backup,
 .result-files code {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   word-break: break-all;
 }
 
 .inline-code {
-  font-size: 11.5px;
+  font-size: var(--font-size-xs);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 4px;
-  padding: 1px 5px;
+  padding: var(--space-1) var(--space-2);
 }
 
 .field-label {
   display: block;
-  margin-bottom: 6px;
-  font-size: 12px;
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--color-text-secondary);
 }
 
 .field-input {
   width: 100%;
-  padding: 9px 12px;
+  padding: var(--space-3) var(--space-4);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
-  font: 13px/1.5 var(--font-sans);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
   outline: none;
   resize: vertical;
 }
@@ -109,11 +111,11 @@
 .status {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  margin-top: 14px;
-  padding: 10px 12px;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-sm);
-  font-size: 12.5px;
+  font-size: var(--font-size-sm);
   line-height: 1.5;
 }
 
@@ -152,35 +154,35 @@
 
 .planning-instruction {
   display: flex;
-  gap: 8px;
-  margin: 12px 0 0;
-  font-size: 12px;
+  gap: var(--space-3);
+  margin: var(--space-4) 0 0;
+  font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
 }
 
 .review,
 .result-block {
-  margin-top: 14px;
+  margin-top: var(--space-4);
 }
 
 .review-summary {
-  padding: 10px 12px;
+  padding: var(--space-3) var(--space-4);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
 }
 
 .review-summary-text {
-  margin: 4px 0 0;
-  font-size: 13.5px;
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-md);
   color: var(--color-text-primary);
 }
 
 .preview-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin: 14px 0 0;
+  gap: var(--space-3);
+  margin: var(--space-4) 0 0;
   padding: 0;
   list-style: none;
 }
@@ -198,8 +200,8 @@
 .preview-summary {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
+  gap: var(--space-3);
+  padding: var(--space-3);
   background: var(--color-surface);
   list-style: none;
   cursor: pointer;
@@ -212,9 +214,9 @@
 
 .preview-badge {
   flex-shrink: 0;
-  padding: 2px 6px;
+  padding: var(--space-1) var(--space-2);
   border-radius: 4px;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -236,17 +238,17 @@
 
 .preview-disclosure app-edit-diff {
   display: block;
-  padding: 10px;
+  padding: var(--space-3);
 }
 
 .preview-problem {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 10px 12px;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
   background: var(--color-danger-bg);
   color: var(--color-danger);
-  font-size: 12.5px;
+  font-size: var(--font-size-sm);
 }
 
 .preview-problem-title {
@@ -254,22 +256,22 @@
 }
 
 .confirm {
-  margin-top: 16px;
-  padding: 14px;
+  margin-top: var(--space-5);
+  padding: var(--space-4);
   background: var(--color-danger-bg);
   border: 1px solid var(--color-danger);
   border-radius: var(--radius-sm);
 }
 
 .confirm-title {
-  font-size: 13.5px;
+  font-size: var(--font-size-md);
   font-weight: 700;
   color: var(--color-text-primary);
 }
 
 .confirm-body {
-  margin: 6px 0 12px;
-  font-size: 12.5px;
+  margin: var(--space-2) 0 var(--space-4);
+  font-size: var(--font-size-sm);
   line-height: 1.5;
   color: var(--color-text-secondary);
 }
@@ -277,18 +279,18 @@
 .confirm-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--space-3);
 }
 
 .result-files,
 .problem-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-2);
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: 12.5px;
+  font-size: var(--font-size-sm);
 }
 
 .result-files code {
@@ -296,7 +298,7 @@
 }
 
 .problem-list li {
-  padding: 6px 8px;
+  padding: var(--space-2) var(--space-3);
   background: var(--color-danger-bg);
   border-radius: 4px;
   color: var(--color-danger);
@@ -304,7 +306,7 @@
 
 .result-backup {
   display: block;
-  padding: 8px 10px;
+  padding: var(--space-3);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -315,8 +317,8 @@
 .panel-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 20px;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
 }
 
 .spacer {
@@ -324,10 +326,10 @@
 }
 
 .btn {
-  padding: 8px 14px;
+  padding: var(--space-3) var(--space-4);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   font-weight: 500;
   cursor: pointer;
 }

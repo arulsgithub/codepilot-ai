@@ -13,14 +13,14 @@
   border-right: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
-  padding: 14px 10px;
-  gap: 10px;
+  padding: var(--space-4) var(--space-3);
+  gap: var(--space-3);
   height: 100%;
   transition: width var(--transition-base);
 
   &--collapsed {
     width: 56px;
-    padding: 14px 8px;
+    padding: var(--space-4) var(--space-3);
     align-items: center;
   }
 }
@@ -28,22 +28,25 @@
 .sidebar-top {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
+// Fixed element dimensions (button/avatar/divider sizes) are intentionally
+// left as literal px below — they size a specific control, not layout
+// rhythm, so they don't belong on the spacing scale.
 .new-chat-button {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--space-2);
   flex: 1;
   min-width: 0;
   background: var(--gradient-accent);
   color: var(--color-accent-contrast);
   border: none;
   border-radius: var(--radius-md);
-  padding: 10px;
-  font-size: 13.5px;
+  padding: var(--space-3);
+  font-size: var(--font-size-md);
   font-weight: 700;
   cursor: pointer;
   transition: box-shadow var(--transition-fast), transform var(--transition-fast);
@@ -58,7 +61,7 @@
 
   .sidebar--collapsed & {
     flex: initial;
-    padding: 10px;
+    padding: var(--space-3);
     width: 36px;
     height: 36px;
   }
@@ -92,7 +95,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
   width: 100%;
 }
 
@@ -100,7 +103,7 @@
   width: 28px;
   height: 1px;
   background: var(--color-border);
-  margin: 6px 0;
+  margin: var(--space-2) 0;
 }
 
 .rail-button {
@@ -114,7 +117,7 @@
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
-  font-size: 14px;
+  font-size: var(--font-size-md);
   cursor: pointer;
   transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
 
@@ -133,7 +136,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   width: 100%;
   overflow-y: auto;
 }
@@ -149,7 +152,7 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   cursor: pointer;
   transition: box-shadow var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
@@ -168,7 +171,7 @@
 }
 
 .sidebar-search {
-  padding: 0 2px;
+  padding: 0 var(--space-1);
 }
 
 .search-input {
@@ -179,7 +182,7 @@
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   font-family: inherit;
-  padding: 6px 10px;
+  padding: var(--space-2) var(--space-3);
   outline: none;
   transition: border-color var(--transition-fast);
 
@@ -208,18 +211,18 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--space-4);
 }
 
 .conversation-group {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
 }
 
 .group-label {
-  margin: 6px 8px 4px;
-  font-size: 11px;
+  margin: var(--space-2) var(--space-3) var(--space-2);
+  font-size: var(--font-size-xs);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -228,16 +231,16 @@
 
 .empty-hint {
   color: var(--color-text-muted);
-  font-size: 12.5px;
-  padding: 10px 8px;
+  font-size: var(--font-size-sm);
+  padding: var(--space-3);
   line-height: 1.5;
 }
 
 .skeleton-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 4px;
+  gap: var(--space-3);
+  padding: var(--space-2);
 }
 
 .skeleton-item {
@@ -277,18 +280,18 @@
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-lg);
-  padding: 20px;
+  padding: var(--space-6);
   width: min(360px, 90vw);
 
   h3 {
-    margin: 0 0 8px;
-    font-size: 15px;
+    margin: 0 0 var(--space-3);
+    font-size: var(--font-size-md);
   }
 
   p {
-    margin: 0 0 18px;
+    margin: 0 0 var(--space-5);
     color: var(--color-text-secondary);
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     line-height: 1.5;
   }
 }
@@ -296,14 +299,14 @@
 .confirm-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--space-3);
 }
 
 .btn-secondary,
 .btn-danger {
   border-radius: var(--radius-sm);
-  padding: 7px 14px;
-  font-size: 13px;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-sm);
   cursor: pointer;
 }
 
@@ -353,7 +356,7 @@
     width: min(280px, 82vw);
     z-index: 60;
     transform: translateX(-100%);
-    transition: transform 0.2s ease;
+    transition: transform var(--transition-base);
     box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
 
     &--open {
