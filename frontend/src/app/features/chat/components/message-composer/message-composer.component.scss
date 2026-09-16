@@ -7,6 +7,12 @@
   border-radius: var(--radius-lg);
   padding: 10px 10px 10px 16px;
   box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+  &:focus-within {
+    border-color: var(--color-accent);
+    box-shadow: var(--glow-accent-soft);
+  }
 }
 
 .composer-textarea {
@@ -34,18 +40,22 @@
 
 .composer-send {
   flex-shrink: 0;
-  background: var(--color-accent);
+  background: var(--gradient-accent);
   color: var(--color-accent-contrast);
   border: none;
   border-radius: var(--radius-md);
   padding: 9px 18px;
   font-size: 13.5px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: background 0.15s ease, opacity 0.15s ease;
+  transition: box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 
   &:hover:not(:disabled) {
-    background: var(--color-accent-hover);
+    box-shadow: var(--glow-accent);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.98);
   }
 
   &:disabled {

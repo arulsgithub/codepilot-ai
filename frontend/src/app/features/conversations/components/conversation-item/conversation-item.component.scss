@@ -4,14 +4,16 @@
   align-items: center;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background 0.12s ease;
+  border-left: 2px solid transparent;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
 
   &:hover {
     background: var(--color-surface-hover);
   }
 
   &--active {
-    background: var(--color-surface-hover);
+    background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface-hover));
+    border-left-color: var(--color-accent);
 
     .conversation-title {
       color: var(--color-text-primary);

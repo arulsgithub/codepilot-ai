@@ -8,6 +8,11 @@
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   font-size: 12px;
+  transition: border-color var(--transition-fast);
+
+  &[open] {
+    border-color: color-mix(in srgb, var(--color-accent-secondary) 40%, var(--color-border));
+  }
 }
 
 .sources-summary {
@@ -31,7 +36,7 @@
 }
 
 .sources-icon {
-  color: var(--color-accent);
+  color: var(--color-accent-secondary);
   font-size: 10px;
 }
 

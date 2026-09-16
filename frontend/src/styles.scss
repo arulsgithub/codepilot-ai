@@ -5,68 +5,91 @@
 // toggle (see app.component.ts) is a single attribute flip on <html>,
 // nothing more. Components should never hardcode a color — reference a
 // token instead, so a future palette tweak only touches this file.
+//
+// Look: a dark, high-contrast "pro tool" theme (near-black surfaces, subtle
+// glass/blur elevation) with a single vivid two-stop accent (electric violet
+// -> neon cyan) used for brand marks, primary actions and focus states. The
+// glow effects (--glow-*) are deliberately DARK-THEME-ONLY — a neon bloom on
+// a white background reads as a rendering bug, not polish — so the light
+// theme below redefines them as ordinary soft shadows instead of disabling
+// visual feedback outright.
 // ---------------------------------------------------------------------------
 
 :root,
 html[data-theme='dark'] {
-  // Surfaces
-  --color-bg: #0d1117;
-  --color-bg-elevated: #11161d;
-  --color-surface: #161b22;
-  --color-surface-hover: #1c222b;
-  --color-border: #262c36;
-  --color-border-strong: #333b47;
+  // Surfaces — near-black with a faint blue-violet tint, not pure gray.
+  --color-bg: #08090d;
+  --color-bg-elevated: #0e0f16;
+  --color-surface: #14151d;
+  --color-surface-hover: #1b1d28;
+  --color-border: #24262f;
+  --color-border-strong: #34384a;
 
   // Text
-  --color-text-primary: #e6edf3;
-  --color-text-secondary: #9aa4b2;
-  --color-text-muted: #6b7280;
+  --color-text-primary: #f1f2f8;
+  --color-text-secondary: #9ea3b8;
+  --color-text-muted: #6b7085;
 
-  // Accent — restrained, single accent color per the design brief
-  --color-accent: #4f8cff;
-  --color-accent-hover: #6c9eff;
-  --color-accent-contrast: #061224;
+  // Accent — a two-stop brand gradient (violet -> cyan). --color-accent is
+  // the flat fallback (borders, text, icons); --gradient-accent is for
+  // filled surfaces (primary buttons, active states, brand mark).
+  --color-accent: #8b6bff;
+  --color-accent-hover: #a488ff;
+  --color-accent-contrast: #08060f;
+  --color-accent-secondary: #00e6ff;
+  --gradient-accent: linear-gradient(135deg, #8b6bff 0%, #00c2ff 100%);
+
+  // Glow — dark-theme-only neon bloom for primary/active/focus elements.
+  --glow-accent: 0 0 0 1px rgba(139, 107, 255, 0.5), 0 0 20px rgba(139, 107, 255, 0.35);
+  --glow-accent-soft: 0 0 0 1px rgba(139, 107, 255, 0.35), 0 0 12px rgba(139, 107, 255, 0.2);
+  --glow-cyan-soft: 0 0 16px rgba(0, 230, 255, 0.25);
 
   // Semantic
-  --color-danger: #f2555a;
-  --color-danger-bg: rgba(242, 85, 90, 0.1);
-  --color-success: #3fb950;
+  --color-danger: #ff5c72;
+  --color-danger-bg: rgba(255, 92, 114, 0.12);
+  --color-success: #2fe6a0;
+  --color-success-bg: rgba(47, 230, 160, 0.12);
 
   // Chat bubbles
-  --color-bubble-user-bg: #1c2733;
-  --color-bubble-user-border: #2a3a4a;
+  --color-bubble-user-bg: linear-gradient(155deg, rgba(139, 107, 255, 0.16), rgba(0, 198, 255, 0.08));
+  --color-bubble-user-border: rgba(139, 107, 255, 0.35);
   --color-bubble-assistant-bg: transparent;
 
   // Code
-  --color-code-bg: #0a0e14;
-  --color-code-border: #232a35;
-  --color-code-header-bg: #131920;
+  --color-code-bg: #07080c;
+  --color-code-border: #23262f;
+  --color-code-header-bg: #121319;
   // Foreground for text ON the code surface. --color-code-bg is dark in BOTH
   // themes, so unlike --color-text-primary this stays light-on-dark always.
-  --color-code-text: #c9d1d9;
+  --color-code-text: #d3d6e0;
 
   // Diff rendering (edit review). The diff always sits on a dark code surface
   // (--color-code-bg is dark in BOTH themes), so one set of tints is legible
   // in light and dark alike. Additions/removals are never colour-only — the
   // edit-diff component also renders a +/- gutter sign and a coloured left
   // border — but these keep the two obvious at a glance for everyone else.
-  --color-diff-add-bg: rgba(63, 185, 80, 0.15);
-  --color-diff-add-border: #3fb950;
-  --color-diff-add-text: #7ee787;
-  --color-diff-del-bg: rgba(248, 81, 73, 0.15);
-  --color-diff-del-border: #f85149;
-  --color-diff-del-text: #ffa198;
-  --color-diff-hunk-bg: rgba(88, 166, 255, 0.1);
-  --color-diff-hunk-text: #a5d6ff;
-  --color-diff-meta-text: #8b949e;
+  --color-diff-add-bg: rgba(47, 230, 160, 0.14);
+  --color-diff-add-border: #2fe6a0;
+  --color-diff-add-text: #7cf5c4;
+  --color-diff-del-bg: rgba(255, 92, 114, 0.14);
+  --color-diff-del-border: #ff5c72;
+  --color-diff-del-text: #ffa3ae;
+  --color-diff-hunk-bg: rgba(0, 198, 255, 0.1);
+  --color-diff-hunk-text: #8fe3ff;
+  --color-diff-meta-text: #8b8fa3;
+
+  // Glass elevation — translucent surfaces over the ambient background glow
+  // (see .bg-glow in body below) for header/sidebar/overlays.
+  --surface-glass: rgba(14, 15, 22, 0.72);
+  --surface-glass-blur: 20px;
 
   // Shape / elevation
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.35);
-  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.45);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.55);
 
   // Type
   --font-sans:
@@ -107,32 +130,50 @@ html[data-theme='dark'] {
 }
 
 html[data-theme='light'] {
-  --color-bg: #f6f8fa;
+  --color-bg: #f6f6fb;
   --color-bg-elevated: #ffffff;
   --color-surface: #ffffff;
-  --color-surface-hover: #eef1f4;
-  --color-border: #d8dee4;
-  --color-border-strong: #c2cad3;
+  --color-surface-hover: #f1f1f9;
+  --color-border: #e0e1ee;
+  --color-border-strong: #c7c8dc;
 
-  --color-text-primary: #1b1f24;
-  --color-text-secondary: #4b5563;
-  --color-text-muted: #6b7280;
+  --color-text-primary: #14151f;
+  --color-text-secondary: #4c4f63;
+  --color-text-muted: #6b7085;
 
-  --color-accent: #2f6fed;
-  --color-accent-hover: #1f5ce0;
+  // Deeper, AA-safe versions of the same violet/cyan brand hues — the neon
+  // dark-theme values fail contrast on a white surface, so light mode uses
+  // its own deliberately-designed pair rather than the dark theme inverted.
+  --color-accent: #6a3df0;
+  --color-accent-hover: #5a2be0;
   --color-accent-contrast: #ffffff;
+  --color-accent-secondary: #0891b2;
+  --gradient-accent: linear-gradient(135deg, #6a3df0 0%, #0891b2 100%);
+
+  // No neon bloom on a light surface — ordinary soft, tinted shadows instead.
+  --glow-accent: 0 2px 10px rgba(106, 61, 240, 0.28);
+  --glow-accent-soft: 0 1px 6px rgba(106, 61, 240, 0.2);
+  --glow-cyan-soft: 0 1px 6px rgba(8, 145, 178, 0.18);
 
   --color-danger: #cf222e;
   --color-danger-bg: rgba(207, 34, 46, 0.08);
   --color-success: #1a7f37;
+  --color-success-bg: rgba(26, 127, 55, 0.09);
 
-  --color-bubble-user-bg: #eaf1ff;
-  --color-bubble-user-border: #cddcfb;
+  --color-bubble-user-bg: linear-gradient(155deg, rgba(106, 61, 240, 0.08), rgba(8, 145, 178, 0.05));
+  --color-bubble-user-border: rgba(106, 61, 240, 0.22);
   --color-bubble-assistant-bg: transparent;
 
   --color-code-bg: #0d1117;
   --color-code-border: #d8dee4;
   --color-code-header-bg: #f0f2f5;
+
+  --surface-glass: rgba(255, 255, 255, 0.78);
+  --surface-glass-blur: 14px;
+
+  --shadow-sm: 0 1px 2px rgba(20, 21, 31, 0.06);
+  --shadow-md: 0 4px 16px rgba(20, 21, 31, 0.08);
+  --shadow-lg: 0 16px 40px rgba(20, 21, 31, 0.12);
 }
 
 * {
@@ -146,12 +187,41 @@ body {
 }
 
 body {
+  position: relative;
   background: var(--color-bg);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+// Ambient background glow: two soft, fixed color blobs behind the whole app
+// so the glass surfaces (header/sidebar/overlays) have something to blur —
+// without this a `backdrop-filter` over a flat color is invisible. Dark
+// theme only: on a white surface the same treatment just looks like a stain.
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    radial-gradient(680px circle at 12% -6%, rgba(139, 107, 255, 0.16), transparent 60%),
+    radial-gradient(560px circle at 108% 12%, rgba(0, 198, 255, 0.12), transparent 60%),
+    radial-gradient(600px circle at 50% 118%, rgba(139, 107, 255, 0.08), transparent 60%);
+}
+
+// The app always stamps data-theme explicitly (see chat-page.component.ts),
+// so this only ever needs the two concrete cases, not a "system" fallback.
+html:not([data-theme='light']) body::before {
+  opacity: 1;
+}
+
+html[data-theme='light'] body::before {
+  opacity: 0;
 }
 
 button {

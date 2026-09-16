@@ -12,7 +12,9 @@
   width: min(420px, 90vw);
   max-height: 80vh;
   overflow-y: auto;
-  background: var(--color-bg-elevated);
+  background: var(--surface-glass);
+  backdrop-filter: blur(var(--surface-glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--surface-glass-blur)) saturate(150%);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
@@ -75,8 +77,9 @@
 kbd {
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
+  color: var(--color-accent);
   background: var(--color-surface);
-  border: 1px solid var(--color-border-strong);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, var(--color-border-strong));
   border-radius: 4px;
   padding: 2px 6px;
 }

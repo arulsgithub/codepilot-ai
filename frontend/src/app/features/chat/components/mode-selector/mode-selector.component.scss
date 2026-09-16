@@ -29,8 +29,9 @@
   }
 
   &--active {
-    background: var(--color-accent);
+    background: var(--gradient-accent);
     color: var(--color-accent-contrast);
+    box-shadow: var(--glow-accent-soft);
   }
 
   &:disabled {

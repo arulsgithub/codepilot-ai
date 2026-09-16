@@ -45,10 +45,25 @@
 }
 
 .message-author {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
-  font-weight: 600;
-  color: var(--color-accent);
+  font-weight: 700;
   letter-spacing: 0.02em;
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+
+  &::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--gradient-accent);
+    box-shadow: var(--glow-cyan-soft);
+  }
 }
 
 .message-actions {
@@ -73,12 +88,14 @@
   font-size: 11px;
   padding: 2px 7px;
   cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
 
   &:hover,
   &:focus-visible {
     background: var(--color-surface-hover);
     color: var(--color-text-primary);
+    border-color: var(--color-accent);
+    box-shadow: var(--glow-accent-soft);
   }
 }
 
@@ -225,6 +242,7 @@
     &:hover {
       background: var(--color-surface-hover);
       color: var(--color-text-primary);
+      border-color: var(--color-accent);
     }
 
     &.copied {

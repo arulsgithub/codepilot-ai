@@ -26,9 +26,62 @@
     </button>
   </div>
 
-  @if (!collapsed) {
+  @if (collapsed) {
+    <div class="rail">
+      <button
+        type="button"
+        class="rail-button"
+        aria-label="Search conversations"
+        title="Search conversations"
+        (click)="expandAndFocusSearch()"
+      >
+        <span aria-hidden="true">⌕</span>
+      </button>
+      <button
+        type="button"
+        class="rail-button"
+        aria-label="Command palette"
+        title="Command palette (Ctrl/⌘+K)"
+        (click)="paletteRequested.emit()"
+      >
+        <span aria-hidden="true">⌘</span>
+      </button>
+      <button
+        type="button"
+        class="rail-button"
+        [attr.aria-label]="theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'"
+        title="Toggle theme"
+        (click)="themeToggleRequested.emit()"
+      >
+        @if (theme === 'dark') {
+          <span aria-hidden="true">☀</span>
+        } @else {
+          <span aria-hidden="true">☾</span>
+        }
+      </button>
+
+      @if (railRecent.length > 0) {
+        <div class="rail-divider" role="separator"></div>
+        <div class="rail-recent">
+          @for (conversation of railRecent; track conversation.id) {
+            <button
+              type="button"
+              class="rail-avatar"
+              [class.rail-avatar--active]="conversation.id === selectedConversationId"
+              [attr.title]="conversation.title"
+              [attr.aria-label]="'Switch to conversation: ' + conversation.title"
+              (click)="conversationSelected.emit(conversation)"
+            >
+              {{ railInitial(conversation) }}
+            </button>
+          }
+        </div>
+      }
+    </div>
+  } @else {
     <div class="sidebar-search">
       <input
+        #searchInput
         type="search"
         class="search-input"
         placeholder="Search conversations"

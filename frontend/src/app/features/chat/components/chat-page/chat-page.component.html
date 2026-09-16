@@ -39,12 +39,15 @@
       [loading]="state.conversationsLoading()"
       [open]="sidebarOpen()"
       [collapsed]="sidebarCollapsed()"
+      [theme]="theme()"
       (newChatRequested)="onNewChat()"
       (conversationSelected)="onSelectConversation($event)"
       (conversationDeleted)="onDeleteConversation($event)"
       (conversationRenamed)="onRenameConversation($event)"
       (closeRequested)="sidebarOpen.set(false)"
       (collapseToggled)="toggleSidebarCollapsed()"
+      (paletteRequested)="commandPaletteOpen.set(true)"
+      (themeToggleRequested)="toggleTheme()"
     />
 
     <main class="chat-area">
