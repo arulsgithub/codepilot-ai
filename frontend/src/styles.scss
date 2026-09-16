@@ -65,11 +65,45 @@ html[data-theme='dark'] {
   --radius-md: 10px;
   --radius-lg: 14px;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.45);
 
   // Type
   --font-sans:
     'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+// ---------------------------------------------------------------------------
+// Spacing + type scale — same in both themes, split out from the color block
+// above so the values that never change per-theme aren't repeated there.
+// Components should reach for these instead of one-off pixel numbers.
+// ---------------------------------------------------------------------------
+:root {
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 8px;
+  --space-4: 12px;
+  --space-5: 16px;
+  --space-6: 20px;
+  --space-7: 28px;
+  --space-8: 40px;
+
+  --font-size-xs: 11px;
+  --font-size-sm: 12.5px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+
+  // Standard hover/focus/state-change transition. Consumers should still
+  // wrap their own transition declarations in the reduced-motion query
+  // below when adding new animated properties.
+  --transition-fast: 120ms ease;
+  --transition-base: 180ms ease;
+
+  --z-overlay: 100;
+  --z-popover: 200;
 }
 
 html[data-theme='light'] {
