@@ -6,5 +6,6 @@ public enum CodeUnitType {
     ENUM,
     METHOD,
     CONSTRUCTOR,
-    FIELD
+    FIELD,
+    FILE     // a whole non-Java file (no AST available) - see TextFileParser
 }

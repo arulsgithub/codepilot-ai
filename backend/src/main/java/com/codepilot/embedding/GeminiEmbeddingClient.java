@@ -3,6 +3,7 @@ package com.codepilot.embedding;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.util.retry.Retry;
 
@@ -75,7 +76,12 @@ public class GeminiEmbeddingClient implements EmbeddingClient {
                     .block();
         } catch (WebClientResponseException e) {
             throw new IllegalStateException(
-                    "Gemini embeddings request failed: " + e.getStatusCode() + " - " + e.getResponseBodyAsString(), e);
+                    "Gemini embeddings request failed: " + e.getStatusCode() + " - "
+                            + e.getResponseBodyAsString(), e);
+        } catch (WebClientRequestException e) {
+            throw new IllegalStateException(
+                    "Gemini embeddings request failed to reach the server after retries: "
+                            + e.getMessage(), e);
         }
 
         JsonNode json;
@@ -101,8 +107,20 @@ public class GeminiEmbeddingClient implements EmbeddingClient {
         return dimensions;
     }
 
+    /**
+     * Two distinct failure families, and the earlier version only covered one:
+     *  - WebClientResponseException: a response arrived with a bad status (429, 5xx).
+     *  - WebClientRequestException: no response at all - connection reset, DNS failure,
+     *    timeout. This is what killed the indexing run, and it has no status code, so a
+     *    status-only filter silently declined to retry it.
+     */
     private static boolean isRetryable(Throwable t) {
-        return t instanceof WebClientResponseException e
-                && (e.getStatusCode().value() == 429 || e.getStatusCode().is5xxServerError());
+        if (t instanceof WebClientResponseException e) {
+            return e.getStatusCode().value() == 429 || e.getStatusCode().is5xxServerError();
+        }
+        // Transport-level failures are transient by nature - always worth a retry.
+        return t instanceof WebClientRequestException
+                || t instanceof java.io.IOException
+                || t instanceof java.util.concurrent.TimeoutException;
     }
 }

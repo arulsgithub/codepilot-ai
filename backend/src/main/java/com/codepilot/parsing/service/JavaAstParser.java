@@ -125,16 +125,11 @@ public class JavaAstParser {
      * enclosing type declarations and prefixing the file's package - needed so two classes
      * named "Builder" in different packages don't collide in the vector store later.
      */
+    /**
+     * Delegates to JavaNames so code chunks and symbols (SymbolExtractor) always agree on
+     * qualified names - they are joined on this string.
+     */
     private String qualifiedNameOf(BodyDeclaration<?> decl) {
-        Optional<CompilationUnit> compilationUnit = decl.findCompilationUnit();
-        String packageName = compilationUnit
-                .flatMap(CompilationUnit::getPackageDeclaration)
-                .map(pd -> pd.getNameAsString())
-                .orElse("");
-
-        Optional<TypeDeclaration> enclosingType = decl.findAncestor(TypeDeclaration.class);
-        String typeName = enclosingType.map(TypeDeclaration::getNameAsString).orElse("Unknown");
-
-        return packageName.isEmpty() ? typeName : packageName + "." + typeName;
+        return JavaNames.enclosingTypeName(decl);
     }
 }
