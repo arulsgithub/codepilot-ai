@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
+  IndexRepositoryByIdRequest,
   IndexRepositoryRequest,
   IndexRepositoryResponse,
 } from '../models/indexing.model';
@@ -26,6 +27,17 @@ export class IndexingService {
   /** POST /api/v1/indexing — scan, parse, embed and store a local repo. */
   indexRepository(repositoryRoot: string): Observable<IndexRepositoryResponse> {
     const body: IndexRepositoryRequest = { repositoryRoot };
+    return this.http.post<IndexRepositoryResponse>(this.basePath, body);
+  }
+
+  /**
+   * POST /api/v1/indexing by registry id. SLOW — minutes for a few hundred
+   * files, because embeddings are generated locally. The backend also stamps
+   * the repository's `lastIndexedAt`, so callers should re-fetch the
+   * repository afterwards to clear its stale flag.
+   */
+  indexRepositoryById(repositoryId: string): Observable<IndexRepositoryResponse> {
+    const body: IndexRepositoryByIdRequest = { repositoryId };
     return this.http.post<IndexRepositoryResponse>(this.basePath, body);
   }
 }

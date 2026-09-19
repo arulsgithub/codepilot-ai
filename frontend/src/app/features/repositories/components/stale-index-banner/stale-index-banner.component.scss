@@ -1,0 +1,78 @@
+
+
+:host {
+  display: block;
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--color-warning-bg);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+
+  &--error {
+    border-color: var(--color-danger);
+    background: var(--color-danger-bg);
+  }
+}
+
+.banner-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  overflow-wrap: anywhere;
+
+  // The default state is a single icon + sentence on one row.
+  &:has(.banner-icon) {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+}
+
+.banner-icon {
+  flex-shrink: 0;
+  color: var(--color-warning);
+}
+
+.banner-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.banner-dismiss {
+  background: none;
+  border: none;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-text-primary);
+  }
+}
+
+@media (max-width: 640px) {
+  .banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .banner-actions {
+    justify-content: flex-end;
+  }
+}

@@ -1,0 +1,67 @@
+@if (visible()) {
+  <div
+    class="banner"
+    [class.banner--error]="!!indexError() && !indexing()"
+    role="status"
+    aria-live="polite"
+  >
+    @if (indexing()) {
+      <div class="banner-main">
+        <strong>Re-indexing {{ repository()?.name }}…</strong>
+        <span>This takes several minutes. You can keep reading your conversations.</span>
+        <div class="repo-progress" aria-hidden="true"></div>
+      </div>
+    } @else if (confirming()) {
+      <div class="banner-main">
+        <strong>Re-index takes several minutes</strong>
+        <span>
+          Embeddings are generated locally, so a few hundred files can take a while. You can keep
+          reading your conversations meanwhile.
+        </span>
+      </div>
+      <div class="banner-actions">
+        <button type="button" class="repo-btn repo-btn--primary repo-btn--small" (click)="confirmReindex()">
+          Start re-index
+        </button>
+        <button type="button" class="repo-btn repo-btn--secondary repo-btn--small" (click)="cancelReindex()">
+          Cancel
+        </button>
+      </div>
+    } @else if (indexError()) {
+      <div class="banner-main" role="alert">
+        <strong>Indexing failed</strong>
+        <span>{{ indexError() }}</span>
+      </div>
+      <div class="banner-actions">
+        <button type="button" class="repo-btn repo-btn--primary repo-btn--small" (click)="askReindex()">
+          Try again
+        </button>
+        <button type="button" class="banner-dismiss" aria-label="Dismiss" (click)="dismiss()">✕</button>
+      </div>
+    } @else {
+      <div class="banner-main">
+        <span class="banner-icon" aria-hidden="true">⚠</span>
+        <span>
+          @if (neverIndexed()) {
+            This repository hasn't been indexed yet. Answers can't draw on its code until you index
+            it.
+          } @else {
+            This repository's index is out of date. Answers may not reflect recent changes.
+          }
+        </span>
+      </div>
+      <div class="banner-actions">
+        <button
+          type="button"
+          class="repo-btn repo-btn--primary repo-btn--small"
+          [disabled]="otherIndexRunning()"
+          [attr.title]="otherIndexRunning() ? 'Another repository is being indexed' : null"
+          (click)="askReindex()"
+        >
+          Re-index now
+        </button>
+        <button type="button" class="banner-dismiss" aria-label="Dismiss warning" (click)="dismiss()">✕</button>
+      </div>
+    }
+  </div>
+}

@@ -38,4 +38,46 @@ public class GitWorkspaceProperties {
     public boolean hasToken() {
         return token != null && !token.isBlank() && !token.startsWith("${");
     }
+
+    /** GitHub REST API root. Configurable so GitHub Enterprise works too. */
+    private String apiBaseUrl = "https://api.github.com";
+
+    /** Identity stamped on commits CodePilot makes. */
+    private String authorName = "CodePilot AI";
+    private String authorEmail = "codepilot@localhost";
+
+    /** Prefix for generated branch names. */
+    private String branchPrefix = "codepilot/";
+
+    public String getApiBaseUrl() {
+        return apiBaseUrl;
+    }
+
+    public void setApiBaseUrl(String apiBaseUrl) {
+        this.apiBaseUrl = apiBaseUrl;
+    }
+
+    public String getAuthorName() {
+        return authorName;
+    }
+
+    public void setAuthorName(String authorName) {
+        this.authorName = authorName;
+    }
+
+    public String getAuthorEmail() {
+        return authorEmail;
+    }
+
+    public void setAuthorEmail(String authorEmail) {
+        this.authorEmail = authorEmail;
+    }
+
+    public String getBranchPrefix() {
+        return branchPrefix;
+    }
+
+    public void setBranchPrefix(String branchPrefix) {
+        this.branchPrefix = branchPrefix;
+    }
 }

@@ -49,6 +49,15 @@
       <button
         type="button"
         class="rail-button"
+        aria-label="Repositories"
+        title="Repositories — expand the sidebar to choose one"
+        (click)="collapseToggled.emit()"
+      >
+        <span aria-hidden="true">⎇</span>
+      </button>
+      <button
+        type="button"
+        class="rail-button"
         [attr.aria-label]="theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'"
         title="Toggle theme"
         (click)="themeToggleRequested.emit()"
@@ -79,6 +88,14 @@
       }
     </div>
   } @else {
+    <div class="sidebar-repo">
+      <app-repository-selector
+        (addRequested)="addRepositoryRequested.emit()"
+        (repositorySelected)="repositorySelected.emit($event)"
+      />
+      <app-repository-details />
+    </div>
+
     <div class="sidebar-search">
       <input
         #searchInput

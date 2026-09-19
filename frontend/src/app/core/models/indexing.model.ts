@@ -10,6 +10,15 @@ export interface IndexRepositoryRequest {
   repositoryRoot: string;
 }
 
+/**
+ * Request body for `POST /api/v1/indexing` when the repository is identified
+ * by its registry id (preferred over a raw path — it works for GitHub clones
+ * whose path the backend chose).
+ */
+export interface IndexRepositoryByIdRequest {
+  repositoryId: string;
+}
+
 /** Response body for `POST /api/v1/indexing`. */
 export interface IndexRepositoryResponse {
   repositoryRoot: string;

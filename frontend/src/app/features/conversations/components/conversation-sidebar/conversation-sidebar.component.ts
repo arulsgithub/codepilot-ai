@@ -14,6 +14,8 @@ import {
   ConversationItemComponent,
   ConversationRename,
 } from '../conversation-item/conversation-item.component';
+import { RepositorySelectorComponent } from '../../../repositories/components/repository-selector/repository-selector.component';
+import { RepositoryDetailsComponent } from '../../../repositories/components/repository-details/repository-details.component';
 
 /** How many conversations the collapsed rail can show as avatars before it'd need its own scroll. */
 const RAIL_RECENT_LIMIT = 6;
@@ -27,7 +29,13 @@ interface ConversationGroup {
 @Component({
   selector: 'app-conversation-sidebar',
   standalone: true,
-  imports: [CommonModule, FormsModule, ConversationItemComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ConversationItemComponent,
+    RepositorySelectorComponent,
+    RepositoryDetailsComponent,
+  ],
   templateUrl: './conversation-sidebar.component.html',
   styleUrl: './conversation-sidebar.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -65,6 +73,10 @@ export class ConversationSidebarComponent {
   /** Collapsed-rail quick actions — bounced straight up to ChatPageComponent, same as the header's. */
   @Output() paletteRequested = new EventEmitter<void>();
   @Output() themeToggleRequested = new EventEmitter<void>();
+  /** The repository selector's "+ Add" — the page owns the Add dialog. */
+  @Output() addRepositoryRequested = new EventEmitter<void>();
+  /** A repository (or none) was chosen in the selector. */
+  @Output() repositorySelected = new EventEmitter<string | null>();
 
   @ViewChild('searchInput') searchInputRef?: ElementRef<HTMLInputElement>;
 

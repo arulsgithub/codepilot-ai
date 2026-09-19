@@ -28,6 +28,13 @@ export interface ChatRequest {
    */
   repositoryRoot?: string;
   /**
+   * Id of the selected registered repository. Sent together with
+   * `repositoryRoot` (its `localPath`): the backend's chat endpoint currently
+   * resolves RAG from the path and does not read this field yet, so omitting
+   * the path would silently turn RAG off. Omitted when no repository is selected.
+   */
+  repositoryId?: string;
+  /**
    * Explicit model mode. Omitted when the user picks "Auto" so the backend
    * chooses. Never `RAG` or `TITLE` (see {@link ChatMode}).
    */

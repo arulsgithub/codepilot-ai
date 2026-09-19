@@ -1,0 +1,180 @@
+@if (repository(); as repo) {
+  <section class="details" [attr.aria-label]="'Details for ' + repo.name">
+    <button
+      type="button"
+      class="details-toggle"
+      [attr.aria-expanded]="!collapsed()"
+      (click)="toggleCollapsed()"
+    >
+      <span class="details-title" [attr.title]="repo.name">{{ repo.name }}</span>
+      <span class="details-caret" aria-hidden="true">{{ collapsed() ? '▸' : '▾' }}</span>
+    </button>
+
+    @if (!collapsed()) {
+      <div class="details-body">
+        <div class="details-tags">
+          <span class="repo-badge" [class.repo-badge--github]="repo.sourceType === 'GITHUB'">
+            {{ repo.sourceType === 'GITHUB' ? 'github' : 'local' }}
+          </span>
+          @if (repo.branch) {
+            <span class="details-branch" title="Branch">⎇ {{ repo.branch }}</span>
+          }
+        </div>
+
+        <dl class="details-list">
+          <div class="details-row">
+            <dt>Path</dt>
+            <dd>
+              <code class="mono truncate" [attr.title]="repo.localPath">{{ repo.localPath }}</code>
+            </dd>
+          </div>
+
+          @if (repo.sourceType === 'GITHUB' && repo.remoteUrl) {
+            <div class="details-row">
+              <dt>Remote</dt>
+              <dd>
+                @if (isLinkable(repo.remoteUrl)) {
+                  <a
+                    class="truncate"
+                    [href]="repo.remoteUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    [attr.title]="repo.remoteUrl"
+                    >{{ repo.remoteUrl }}</a
+                  >
+                } @else {
+                  <span class="truncate" [attr.title]="repo.remoteUrl">{{ repo.remoteUrl }}</span>
+                }
+              </dd>
+            </div>
+          }
+
+          @if (repo.sourceType === 'GITHUB') {
+            <div class="details-row">
+              <dt>Last synced</dt>
+              <dd>
+                <span [attr.title]="absolute(repo.lastSyncedAt)">{{ relative(repo.lastSyncedAt) }}</span>
+              </dd>
+            </div>
+          }
+
+          <div class="details-row">
+            <dt>Last indexed</dt>
+            <dd>
+              <span [attr.title]="absolute(repo.lastIndexedAt)">{{ relative(repo.lastIndexedAt) }}</span>
+              @if (repo.indexStale) {
+                <span class="repo-badge repo-badge--stale">
+                  {{ repo.lastIndexedAt === null ? 'not indexed' : 'stale' }}
+                </span>
+              }
+            </dd>
+          </div>
+
+          @if (repo.lastSyncedCommit) {
+            <div class="details-row">
+              <dt>Commit</dt>
+              <dd>
+                <code class="mono" [attr.title]="repo.lastSyncedCommit">{{ shortCommit(repo.lastSyncedCommit) }}</code>
+              </dd>
+            </div>
+          }
+        </dl>
+
+        <div class="details-actions">
+          @if (repo.sourceType === 'GITHUB') {
+            <button
+              type="button"
+              class="repo-btn repo-btn--secondary"
+              [disabled]="isSyncing() || isIndexing()"
+              [attr.aria-busy]="isSyncing()"
+              (click)="sync()"
+            >
+              @if (isSyncing()) {
+                <span class="repo-spinner" aria-hidden="true"></span>
+                Syncing…
+              } @else {
+                Sync
+              }
+            </button>
+          }
+          <button
+            type="button"
+            class="repo-btn repo-btn--primary"
+            [disabled]="isIndexing() || isSyncing() || otherIndexRunning() || confirmingReindex()"
+            [attr.aria-busy]="isIndexing()"
+            (click)="askReindex()"
+          >
+            @if (isIndexing()) {
+              <span class="repo-spinner" aria-hidden="true"></span>
+              Indexing…
+            } @else {
+              Re-index
+            }
+          </button>
+        </div>
+
+        @if (otherIndexRunning() && !isIndexing()) {
+          <p class="details-note">Another repository is being indexed. Wait for it to finish.</p>
+        }
+
+        <!-- Slow-operation warning: nothing starts until the user confirms. -->
+        @if (confirmingReindex()) {
+          <div class="repo-alert repo-alert--warn details-confirm" role="alertdialog" aria-label="Confirm re-index">
+            <div class="details-confirm-body">
+              <span>
+                Re-indexing takes <strong>several minutes</strong> for a few hundred files because
+                embeddings are generated locally. You can keep reading your conversations while it runs.
+              </span>
+              <span class="details-confirm-actions">
+                <button type="button" class="repo-btn repo-btn--primary repo-btn--small" (click)="confirmReindex()">
+                  Start re-index
+                </button>
+                <button type="button" class="repo-btn repo-btn--secondary repo-btn--small" (click)="cancelReindex()">
+                  Cancel
+                </button>
+              </span>
+            </div>
+          </div>
+        }
+
+        @if (isIndexing()) {
+          <div class="details-progress" role="status" aria-live="polite">
+            <div class="repo-progress" aria-hidden="true"></div>
+            <p>
+              Indexing <strong>{{ repo.name }}</strong>… this takes several minutes. You can keep
+              reading your conversations.
+            </p>
+          </div>
+        }
+
+        @if (isSyncing()) {
+          <p class="details-note" role="status">Fetching new commits…</p>
+        }
+
+        @if (syncError(); as message) {
+          <div class="repo-alert repo-alert--error" role="alert">
+            <span aria-hidden="true">⚠</span>
+            <span>Sync failed: {{ message }}</span>
+          </div>
+        }
+
+        @if (indexError(); as message) {
+          <div class="repo-alert repo-alert--error" role="alert">
+            <span aria-hidden="true">⚠</span>
+            <span>Indexing failed: {{ message }}</span>
+          </div>
+        }
+
+        @if (indexResult(); as result) {
+          <div class="repo-alert repo-alert--ok" role="status">
+            <span aria-hidden="true">✓</span>
+            <span class="details-ok-text">
+              Indexed {{ result.chunksIndexed }} {{ result.chunksIndexed === 1 ? 'chunk' : 'chunks' }}.
+              <button type="button" class="details-dismiss" (click)="dismissIndexOutcome()">Dismiss</button>
+            </span>
+          </div>
+        }
+      </div>
+    }
+  </section>
+}

@@ -19,6 +19,9 @@ import { RepositoryPanelComponent } from '../repository-panel/repository-panel.c
 import { EditPanelComponent } from '../edit-panel/edit-panel.component';
 import { CommandPaletteComponent } from '../command-palette/command-palette.component';
 import { ShortcutsDialogComponent } from '../shortcuts-dialog/shortcuts-dialog.component';
+import { AddRepositoryDialogComponent } from '../../../repositories/components/add-repository-dialog/add-repository-dialog.component';
+import { StaleIndexBannerComponent } from '../../../repositories/components/stale-index-banner/stale-index-banner.component';
+import { RepositoryService } from '../../../../core/services/repository.service';
 import { ConversationRename } from '../../../conversations/components/conversation-item/conversation-item.component';
 import { Conversation } from '../../../../core/models/conversation.model';
 import { ModeSelection } from '../../../../core/models/chat.model';
@@ -51,6 +54,8 @@ const HINTS_DISMISSED_STORAGE_KEY = 'codepilot-onboarding-hints-dismissed';
     EditPanelComponent,
     CommandPaletteComponent,
     ShortcutsDialogComponent,
+    AddRepositoryDialogComponent,
+    StaleIndexBannerComponent,
   ],
   templateUrl: './chat-page.component.html',
   styleUrl: './chat-page.component.scss',
@@ -58,10 +63,12 @@ const HINTS_DISMISSED_STORAGE_KEY = 'codepilot-onboarding-hints-dismissed';
 })
 export class ChatPageComponent implements OnInit {
   readonly state = inject(ChatStateService);
+  readonly repositories = inject(RepositoryService);
 
   @ViewChild(MessageComposerComponent) composer?: MessageComposerComponent;
 
   sidebarOpen = signal(false);
+  addRepositoryOpen = signal(false);
   sidebarCollapsed = signal(this.readStoredSidebarCollapsed());
   repositoryPanelOpen = signal(false);
   editPanelOpen = signal(false);
@@ -73,6 +80,24 @@ export class ChatPageComponent implements OnInit {
   ngOnInit(): void {
     this.applyTheme(this.theme());
     this.state.loadConversations();
+    this.repositories.load();
+  }
+
+  openAddRepository(): void {
+    this.addRepositoryOpen.set(true);
+    this.sidebarOpen.set(false);
+  }
+
+  closeAddRepository(): void {
+    this.addRepositoryOpen.set(false);
+  }
+
+  /**
+   * The user picked a registry repository (or "none") in the sidebar. Forget
+   * any legacy path attachment so it cannot resurface behind the new choice.
+   */
+  onRepositorySelected(): void {
+    this.state.clearLegacyAttachment();
   }
 
   /**

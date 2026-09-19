@@ -48,6 +48,8 @@
       (collapseToggled)="toggleSidebarCollapsed()"
       (paletteRequested)="commandPaletteOpen.set(true)"
       (themeToggleRequested)="toggleTheme()"
+      (addRepositoryRequested)="openAddRepository()"
+      (repositorySelected)="onRepositorySelected()"
     />
 
     <main class="chat-area">
@@ -70,6 +72,8 @@
       }
 
       <div class="composer-region">
+        <app-stale-index-banner />
+
         <div class="composer-toolbar">
           <app-mode-selector
             [mode]="state.chatMode()"
@@ -79,7 +83,19 @@
           @if (state.repositoryAttached()) {
             <span class="composer-repo-hint" title="Answers are grounded in this repository">
               <span class="composer-repo-dot" aria-hidden="true"></span>
-              Repo attached
+              @if (repositories.selectedRepository(); as selected) {
+                Repo: {{ selected.name }}
+              } @else {
+                Repo attached
+              }
+            </span>
+          } @else {
+            <span
+              class="composer-repo-hint composer-repo-hint--none"
+              title="No repository is selected, so answers do not use your code. Pick one in the sidebar."
+            >
+              <span class="composer-repo-dot composer-repo-dot--none" aria-hidden="true"></span>
+              No repository — general chat, answers won't use your code
             </span>
           }
         </div>
@@ -102,6 +118,11 @@
     (indexRequested)="onIndexRepository($event)"
     (detachRequested)="onDetachRepository()"
     (closeRequested)="closeRepositoryPanel()"
+  />
+
+  <app-add-repository-dialog
+    [open]="addRepositoryOpen()"
+    (closeRequested)="closeAddRepository()"
   />
 
   <app-edit-panel

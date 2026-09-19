@@ -1,0 +1,171 @@
+@if (open) {
+  <div class="dialog-scrim" role="presentation" (click)="close()">
+    <div
+      class="dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="add-repo-title"
+      [attr.aria-busy]="busy()"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="dialog-header">
+        <h2 id="add-repo-title">Add a repository</h2>
+        <button type="button" class="dialog-close" aria-label="Close" [disabled]="busy()" (click)="close()">
+          ✕
+        </button>
+      </div>
+
+      <div class="tabs" role="tablist" aria-label="Repository source">
+        <button
+          type="button"
+          role="tab"
+          id="tab-local"
+          class="tab"
+          [class.tab--active]="tab() === 'local'"
+          [attr.aria-selected]="tab() === 'local'"
+          aria-controls="panel-local"
+          [disabled]="busy()"
+          (click)="selectTab('local')"
+        >
+          Local folder
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="tab-github"
+          class="tab"
+          [class.tab--active]="tab() === 'github'"
+          [attr.aria-selected]="tab() === 'github'"
+          aria-controls="panel-github"
+          [disabled]="busy()"
+          (click)="selectTab('github')"
+        >
+          GitHub
+        </button>
+      </div>
+
+      <form class="form" (ngSubmit)="submit()" novalidate>
+        <fieldset class="fieldset" [disabled]="busy()">
+          @if (tab() === 'local') {
+            <div id="panel-local" role="tabpanel" aria-labelledby="tab-local" class="panel">
+              <p class="hint">
+                A folder that already exists on the machine running the CodePilot backend.
+              </p>
+
+              <label class="label" for="local-path">Absolute path</label>
+              <input
+                #firstField
+                id="local-path"
+                name="localPath"
+                type="text"
+                class="input input--mono"
+                placeholder="E:\path\to\your\repo"
+                spellcheck="false"
+                autocomplete="off"
+                [(ngModel)]="localPath"
+              />
+
+              <label class="label" for="local-name">Name <span class="optional">(optional)</span></label>
+              <input
+                id="local-name"
+                name="localName"
+                type="text"
+                class="input"
+                placeholder="Defaults to the folder name"
+                autocomplete="off"
+                [(ngModel)]="localName"
+              />
+            </div>
+          } @else {
+            <div id="panel-github" role="tabpanel" aria-labelledby="tab-github" class="panel">
+              <p class="hint">
+                The server clones this repository into its managed workspace.
+                Private repositories require <code>GITHUB_TOKEN</code> to be configured on the server.
+              </p>
+
+              <label class="label" for="github-url">Repository URL</label>
+              <input
+                #firstField
+                id="github-url"
+                name="githubUrl"
+                type="url"
+                class="input input--mono"
+                [class.input--invalid]="githubUrlInvalid"
+                placeholder="https://github.com/owner/repo"
+                spellcheck="false"
+                autocomplete="off"
+                [attr.aria-invalid]="githubUrlInvalid"
+                aria-describedby="github-url-error"
+                [(ngModel)]="githubUrl"
+              />
+              @if (githubUrlInvalid) {
+                <p id="github-url-error" class="field-error" role="alert">The URL must start with https://</p>
+              }
+
+              <label class="label" for="github-branch">Branch <span class="optional">(optional)</span></label>
+              <input
+                id="github-branch"
+                name="githubBranch"
+                type="text"
+                class="input input--mono"
+                placeholder="Defaults to the repository's default branch"
+                spellcheck="false"
+                autocomplete="off"
+                [(ngModel)]="githubBranch"
+              />
+
+              <label class="label" for="github-name">Name <span class="optional">(optional)</span></label>
+              <input
+                id="github-name"
+                name="githubName"
+                type="text"
+                class="input"
+                placeholder="Defaults to the repository name"
+                autocomplete="off"
+                [(ngModel)]="githubName"
+              />
+            </div>
+          }
+        </fieldset>
+
+        @if (busy()) {
+          <div class="repo-alert repo-alert--info progress" role="status" aria-live="polite">
+            <div class="progress-text">
+              @if (tab() === 'github') {
+                <strong>Cloning repository…</strong>
+                <span>
+                  This runs on the server and can take a minute for a large repository. Keep this
+                  window open.
+                </span>
+              } @else {
+                <strong>Adding folder…</strong>
+              }
+            </div>
+            <div class="repo-progress" aria-hidden="true"></div>
+          </div>
+        }
+
+        @if (errorMessage(); as message) {
+          <div class="repo-alert repo-alert--error" role="alert">
+            <span aria-hidden="true">⚠</span>
+            <span>{{ message }}</span>
+          </div>
+        }
+
+        <div class="actions">
+          <button type="button" class="repo-btn repo-btn--secondary" [disabled]="busy()" (click)="close()">
+            Cancel
+          </button>
+          <button type="submit" class="repo-btn repo-btn--primary" [disabled]="!canSubmit">
+            @if (busy()) {
+              <span class="repo-spinner" aria-hidden="true"></span>
+              {{ tab() === 'github' ? 'Cloning…' : 'Adding…' }}
+            } @else {
+              {{ tab() === 'github' ? 'Clone repository' : 'Add repository' }}
+            }
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

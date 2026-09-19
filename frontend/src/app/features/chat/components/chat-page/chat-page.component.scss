@@ -115,6 +115,17 @@
   box-shadow: 0 0 6px color-mix(in srgb, var(--color-success) 70%, transparent);
 }
 
+// No repository selected: same chip, but visibly a different, muted mode so
+// nobody mistakes general chat for code-grounded answers.
+.composer-repo-hint--none {
+  color: var(--color-warning);
+}
+
+.composer-repo-dot--none {
+  background: var(--color-warning);
+  box-shadow: none;
+}
+
 @media (max-width: 640px) {
   .composer-region {
     padding: var(--space-3) var(--space-4) var(--space-4);

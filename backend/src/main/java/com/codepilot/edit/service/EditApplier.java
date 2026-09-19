@@ -34,7 +34,14 @@ import java.util.Set;
 public class EditApplier {
 
     private static final Logger log = LoggerFactory.getLogger(EditApplier.class);
-    private static final String BACKUP_DIR = ".codepilot-backups";
+
+    /**
+     * Backups live INSIDE the repository root. That is convenient for recovery but means
+     * anything committing from this directory must never stage blindly - see
+     * GitCommitService.commitFiles, which commits only the files EditApplier reports as
+     * changed for exactly this reason.
+     */
+    public static final String BACKUP_DIR = ".codepilot-backups";
 
     private final EditValidator validator;
 
@@ -59,9 +66,20 @@ public class EditApplier {
     public record ApplyResult(List<String> changedFiles, String backupLocation) {
     }
 
+    /** Existing entry point - unchanged behaviour, now delegating. */
     public ApplyResult apply(ApplyEditsRequest request) {
+        return apply(request.repositoryRoot(), request.edits());
+    }
 
-        Path root = Path.of(request.repositoryRoot()).toAbsolutePath().normalize();
+    /**
+     * Overload for callers that have already resolved the repository directory - notably
+     * EditDeliveryService, which resolves a repositoryId to a path and may be working inside
+     * a freshly created git branch. Building a throwaway ApplyEditsRequest just to carry a
+     * path would be noise.
+     */
+    public ApplyResult apply(String repositoryRoot, List<ApplyEditsRequest.ApprovedEdit> edits) {
+
+        Path root = Path.of(repositoryRoot).toAbsolutePath().normalize();
         List<String> problems = new ArrayList<>();
 
         // ---- Phase 1: group edits by file ----
@@ -69,7 +87,7 @@ public class EditApplier {
         // same evolving content - validating each against the pristine original would break
         // as soon as two edits overlap or the second sits in text the first rewrote.
         Map<String, List<ApplyEditsRequest.ApprovedEdit>> byFile = new LinkedHashMap<>();
-        for (ApplyEditsRequest.ApprovedEdit edit : request.edits()) {
+        for (ApplyEditsRequest.ApprovedEdit edit : edits) {
             byFile.computeIfAbsent(edit.relativeFilePath(), k -> new ArrayList<>()).add(edit);
         }
 

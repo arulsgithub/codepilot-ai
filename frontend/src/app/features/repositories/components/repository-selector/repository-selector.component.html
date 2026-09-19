@@ -1,0 +1,108 @@
+<section class="selector" aria-label="Repository">
+  <div class="selector-header">
+    <span class="selector-label">Repository</span>
+    <button
+      type="button"
+      class="selector-add"
+      aria-label="Add repository"
+      title="Add a repository"
+      (click)="addRequested.emit()"
+    >
+      + Add
+    </button>
+  </div>
+
+  @if (repositories.listStatus() === 'in-progress' && repositories.repositories().length === 0) {
+    <div class="selector-loading" role="status">
+      <span class="repo-spinner" aria-hidden="true"></span>
+      <span>Loading repositories…</span>
+    </div>
+  } @else if (repositories.listStatus() === 'error') {
+    <div class="repo-alert repo-alert--error" role="alert">
+      <span aria-hidden="true">⚠</span>
+      <span class="selector-error-text">
+        {{ repositories.listError() }}
+        <button type="button" class="selector-retry" (click)="retry()">Retry</button>
+      </span>
+    </div>
+  } @else {
+    <button
+      type="button"
+      class="selector-trigger"
+      [class.selector-trigger--none]="!repositories.selectedRepository()"
+      aria-haspopup="listbox"
+      [attr.aria-expanded]="open()"
+      (click)="toggle()"
+    >
+      @if (repositories.selectedRepository(); as selected) {
+        <span class="selector-name" [attr.title]="selected.name">{{ selected.name }}</span>
+        <span class="repo-badge" [class.repo-badge--github]="selected.sourceType === 'GITHUB'">
+          {{ selected.sourceType === 'GITHUB' ? 'github' : 'local' }}
+        </span>
+        @if (selected.indexStale) {
+          <span class="repo-badge repo-badge--stale" title="This repository's index is out of date">
+            ⚠ {{ staleLabel(selected) }}
+          </span>
+        }
+      } @else {
+        <span class="selector-none-text">
+          No repository
+          <span class="selector-none-sub">General chat — no code context</span>
+        </span>
+      }
+      <span class="selector-caret" aria-hidden="true">▾</span>
+    </button>
+
+    @if (open()) {
+      <ul class="selector-menu" role="listbox" aria-label="Repositories">
+        <li role="none">
+          <button
+            type="button"
+            role="option"
+            class="selector-option"
+            [class.selector-option--selected]="!repositories.selectedRepositoryId()"
+            [attr.aria-selected]="!repositories.selectedRepositoryId()"
+            (click)="choose(null)"
+          >
+            <span class="selector-option-main">
+              <span class="selector-name">No repository</span>
+              <span class="selector-none-sub">General chat — no code context</span>
+            </span>
+          </button>
+        </li>
+
+        @for (repository of repositories.repositories(); track repository.id) {
+          <li role="none">
+            <button
+              type="button"
+              role="option"
+              class="selector-option"
+              [class.selector-option--selected]="repository.id === repositories.selectedRepositoryId()"
+              [attr.aria-selected]="repository.id === repositories.selectedRepositoryId()"
+              (click)="choose(repository.id)"
+            >
+              <span class="selector-option-main">
+                <span class="selector-name" [attr.title]="repository.name">{{ repository.name }}</span>
+              </span>
+              @if (isBusy(repository)) {
+                <span class="repo-spinner" aria-label="Working" role="status"></span>
+              }
+              <span class="repo-badge" [class.repo-badge--github]="repository.sourceType === 'GITHUB'">
+                {{ repository.sourceType === 'GITHUB' ? 'github' : 'local' }}
+              </span>
+              @if (repository.indexStale) {
+                <span class="repo-badge repo-badge--stale" title="This repository's index is out of date">
+                  ⚠ {{ staleLabel(repository) }}
+                </span>
+              }
+            </button>
+          </li>
+        } @empty {
+          <li class="selector-empty" role="none">
+            No repositories yet. Use <strong>+ Add</strong> to register one.
+          </li>
+        }
+      </ul>
+    }
+  }
+</section>

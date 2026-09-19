@@ -4,6 +4,7 @@ import { ConversationService } from '../../../core/services/conversation.service
 import { MessageService } from '../../../core/services/message.service';
 import { ChatService, HttpStreamError } from '../../../core/services/chat.service';
 import { IndexingService } from '../../../core/services/indexing.service';
+import { RepositoryService } from '../../../core/services/repository.service';
 import { Conversation } from '../../../core/models/conversation.model';
 import { ChatMessageViewModel } from '../../../core/models/message.model';
 import { ChatRequest, ChatState, ModeSelection, SourceReference } from '../../../core/models/chat.model';
@@ -30,6 +31,7 @@ export class ChatStateService {
   private readonly messageService = inject(MessageService);
   private readonly chatService = inject(ChatService);
   private readonly indexingService = inject(IndexingService);
+  private readonly repositories = inject(RepositoryService);
 
   // ---- Conversations ----
   private readonly _conversations = signal<Conversation[]>([]);
@@ -72,14 +74,27 @@ export class ChatStateService {
   // are told not to add. Global is the simpler correct option for now: the
   // path is restored from localStorage on load, applies to whichever
   // conversation is active, and can be detached at any time.
+  //
+  // Two ways to attach exist side by side: the legacy "type an absolute path"
+  // flow (`_repositoryRoot`, below) and a repository selected from the
+  // registry (RepositoryService). A registry selection takes precedence and
+  // the two are kept mutually exclusive by `clearLegacyAttachment()` /
+  // `detachRepository()`, so the effective repository is never ambiguous.
   private readonly _repositoryRoot = signal<string | null>(this.readStoredRepositoryRoot());
-  readonly repositoryRoot = this._repositoryRoot.asReadonly();
-  readonly repositoryAttached = computed(() => !!this._repositoryRoot());
+
+  /** Effective repository path: the selected registry repository's, else the legacy attachment. */
+  readonly repositoryRoot = computed(
+    () => this.repositories.selectedRepository()?.localPath ?? this._repositoryRoot()
+  );
+  readonly repositoryAttached = computed(() => !!this.repositoryRoot());
 
   private readonly _indexingStatus = signal<IndexingStatus>(
     this._repositoryRoot() ? 'success' : 'idle'
   );
-  readonly indexingStatus = this._indexingStatus.asReadonly();
+  /** Legacy path indexing OR a registry repository being (re)indexed — either way the header spinner shows. */
+  readonly indexingStatus = computed<IndexingStatus>(() =>
+    this.repositories.isIndexing() ? 'indexing' : this._indexingStatus()
+  );
 
   /** chunksIndexed from the most recent successful indexing run, if any. */
   private readonly _indexedChunkCount = signal<number | null>(null);
@@ -277,6 +292,9 @@ export class ChatStateService {
         this._indexedChunkCount.set(result.chunksIndexed);
         this._indexingStatus.set('success');
         this.persistRepositoryRoot(result.repositoryRoot);
+        // A path the user just attached explicitly must not be shadowed by an
+        // older registry selection.
+        this.repositories.select(null);
       },
       error: (err: HttpErrorResponse) => {
         this._indexingStatus.set('error');
@@ -285,8 +303,18 @@ export class ChatStateService {
     });
   }
 
-  /** Detaches the repository so chat behaves exactly as it did in Phase 1. */
+  /** Detaches the repository (legacy attachment AND registry selection) so chat runs without RAG. */
   detachRepository(): void {
+    this.clearLegacyAttachment();
+    this.repositories.select(null);
+  }
+
+  /**
+   * Forgets only the legacy path attachment. Called when the user picks a
+   * registry repository (or "none") so an old attachment cannot silently
+   * reappear when that selection is later cleared.
+   */
+  clearLegacyAttachment(): void {
     this._repositoryRoot.set(null);
     this._indexedChunkCount.set(null);
     this._indexingError.set(null);
@@ -495,10 +523,11 @@ export class ChatStateService {
   }
 
   /**
-   * Builds the stream request body. `repositoryRoot` and `mode` are only
-   * added when they carry meaning — with no repository attached and mode
-   * "Auto" the body is `{ conversationId, message, requestId }`, byte-for-byte
-   * identical to Phase 1.
+   * Builds the stream request body. `repositoryId`/`repositoryRoot` and `mode`
+   * are only added when they carry meaning — with no repository attached and
+   * mode "Auto" the body is `{ conversationId, message, requestId }`,
+   * byte-for-byte identical to Phase 1. A selected registry repository sends
+   * both its id and its path (see ChatRequest.repositoryId for why).
    */
   private buildChatRequest(
     conversationId: string,
@@ -506,9 +535,15 @@ export class ChatStateService {
     requestId: string
   ): ChatRequest {
     const request: ChatRequest = { conversationId, message, requestId };
-    const repositoryRoot = this._repositoryRoot();
-    if (repositoryRoot) {
-      request.repositoryRoot = repositoryRoot;
+    const selected = this.repositories.selectedRepository();
+    if (selected) {
+      request.repositoryId = selected.id;
+      request.repositoryRoot = selected.localPath;
+    } else {
+      const legacyRoot = this._repositoryRoot();
+      if (legacyRoot) {
+        request.repositoryRoot = legacyRoot;
+      }
     }
     const mode = this._chatMode();
     if (mode !== 'AUTO') {

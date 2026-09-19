@@ -34,4 +34,16 @@ describe('IndexingService', () => {
 
     expect(result).toEqual(response);
   });
+
+  it('POSTs {repositoryId} (and no path) to /api/v1/indexing when indexing a registered repository', () => {
+    let result: IndexRepositoryResponse | undefined;
+    service.indexRepositoryById('3f0c2b7e-1111-4222-8333-444455556666').subscribe((r) => (result = r));
+
+    const req = httpMock.expectOne('/api/v1/indexing');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ repositoryId: '3f0c2b7e-1111-4222-8333-444455556666' });
+    req.flush(response);
+
+    expect(result).toEqual(response);
+  });
 });
