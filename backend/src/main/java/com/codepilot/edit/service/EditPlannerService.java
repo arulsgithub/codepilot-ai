@@ -10,8 +10,9 @@ import com.codepilot.ai.prompt.PromptBuilder;
 import com.codepilot.edit.dto.EditPlan;
 import com.codepilot.edit.dto.EditPlanResponse;
 import com.codepilot.edit.dto.FileEdit;
-import com.codepilot.indexing.entity.CodeChunkEntity;
-import com.codepilot.retrieval.service.RetrievalService;
+import com.codepilot.retrieval.dto.CallSite;
+import com.codepilot.retrieval.dto.EnrichedContext;
+import com.codepilot.retrieval.service.SymbolAwareRetrievalService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -20,7 +21,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class EditPlannerService {
@@ -30,14 +33,17 @@ public class EditPlannerService {
     /** Editing needs more surrounding context than Q&A - a method alone isn't enough to edit safely. */
     private static final int EDIT_CONTEXT_CHUNKS = 12;
 
-    private final RetrievalService retrievalService;
+    /** Cap on call-site chunks added on top. Each costs prompt budget; a popular utility has many. */
+    private static final int MAX_CALL_SITE_CHUNKS = 8;
+
+    private final SymbolAwareRetrievalService retrievalService;
     private final PromptBuilder promptBuilder;
     private final ModelRouter modelRouter;
     private final EditBlockParser parser;
     private final EditValidator validator;
     private final DiffService diffService;
 
-    public EditPlannerService(RetrievalService retrievalService,
+    public EditPlannerService(SymbolAwareRetrievalService retrievalService,
                               PromptBuilder promptBuilder,
                               ModelRouter modelRouter,
                               EditBlockParser parser,
@@ -53,8 +59,9 @@ public class EditPlannerService {
 
     public EditPlanResponse planEdits(String repositoryRoot, String instruction) {
 
-        List<CodeChunkEntity> context =
-                retrievalService.retrieveRelevantChunks(instruction, repositoryRoot, EDIT_CONTEXT_CHUNKS);
+        // Semantic search finds the code to change; the symbol index adds the code that uses it.
+        EnrichedContext context = retrievalService.retrieveWithCallSites(
+                repositoryRoot, instruction, EDIT_CONTEXT_CHUNKS, MAX_CALL_SITE_CHUNKS);
 
         if (context.isEmpty()) {
             return new EditPlanResponse(
@@ -66,7 +73,8 @@ public class EditPlannerService {
         // Temperature 0.0 (not 0.2): exact-match SEARCH text leaves no room for creativity.
         ResolvedModel resolved = modelRouter.resolve(ModelMode.REASONING);
         List<LLMMessage> messages = List.of(
-                new LLMMessage("system", promptBuilder.buildEditSystemPrompt(context)),
+                new LLMMessage("system",
+                        promptBuilder.buildEditSystemPrompt(context.allChunks(), context.callSites())),
                 new LLMMessage("user", instruction));
 
         LLMResponse response = resolved.client().chat(
@@ -118,6 +126,24 @@ public class EditPlannerService {
             }
         }
 
-        return new EditPlanResponse(plan.summary(), allValid, previews);
+        return new EditPlanResponse(
+                withCallSiteNote(plan.summary(), context.callSites()), allValid, previews);
+    }
+
+    /**
+     * Surfaces what reference analysis contributed, in the summary the UI already displays.
+     * Without this the feature is invisible - the plan just silently gets better, and you have
+     * no way to tell whether call sites were considered or simply not found.
+     */
+    private String withCallSiteNote(String summary, List<CallSite> callSites) {
+        if (callSites.isEmpty()) {
+            return summary;
+        }
+        Set<String> files = new LinkedHashSet<>();
+        callSites.forEach(s -> files.add(s.relativeFilePath()));
+        long confirmed = callSites.stream().filter(CallSite::confirmed).count();
+
+        return summary + "  [Reference analysis found " + callSites.size() + " call site(s) in "
+                + files.size() + " file(s), " + confirmed + " confirmed - all were shown to the model.]";
     }
 }

@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -22,6 +23,21 @@ public interface CodeChunkRepository extends JpaRepository<CodeChunkEntity, UUID
     void deleteByRepositoryRootAndFilePaths(
             @Param("repositoryRoot") String repositoryRoot,
             @Param("relativeFilePaths") List<String> relativeFilePaths
+    );
+
+    /**
+     * Fetches chunks by qualified name.
+     *
+     * This is what joins the symbol index to the vector index. Because JavaAstParser and
+     * SymbolExtractor both name members through JavaNames, a reference's fromQualifiedName
+     * (the calling method) is exactly a chunk's qualifiedName - so finding "the code that calls
+     * this" is a name lookup, not line-range arithmetic.
+     */
+    @Query("select c from CodeChunkEntity c where c.repositoryRoot = :repositoryRoot "
+            + "and c.qualifiedName in :qualifiedNames")
+    List<CodeChunkEntity> findByQualifiedNameIn(
+            @Param("repositoryRoot") String repositoryRoot,
+            @Param("qualifiedNames") Collection<String> qualifiedNames
     );
 
     /**

@@ -1,7 +1,9 @@
 package com.codepilot.ai.prompt;
 
-import org.springframework.stereotype.Component;
 import com.codepilot.indexing.entity.CodeChunkEntity;
+import com.codepilot.retrieval.dto.CallSite;
+import org.springframework.stereotype.Component;
+
 import java.util.List;
 
 @Component
@@ -53,12 +55,51 @@ public class PromptBuilder {
      * failure modes models fall into by default - especially eliding code with "...".
      */
     public String buildEditSystemPrompt(List<CodeChunkEntity> relevantChunks) {
+        return buildEditSystemPrompt(relevantChunks, List.of());
+    }
+
+    /**
+     * Editing prompt with call sites from reference analysis.
+     *
+     * The call-site list is the whole point of Stage 3. Semantic search can put the method to
+     * change in front of the model but cannot promise its callers came too. These entries were
+     * found by exact name resolution, so the model is told about them explicitly and instructed
+     * to keep them consistent - otherwise it happily changes a signature and leaves the callers
+     * broken, producing a plan that looks right and does not compile.
+     */
+    public String buildEditSystemPrompt(List<CodeChunkEntity> relevantChunks,
+                                        List<CallSite> callSites) {
+
         StringBuilder contextBlock = new StringBuilder();
         for (CodeChunkEntity chunk : relevantChunks) {
             contextBlock.append("File: ").append(chunk.getRelativeFilePath())
                     .append(" (lines ").append(chunk.getStartLine())
                     .append("-").append(chunk.getEndLine()).append(")\n")
                     .append("```\n").append(chunk.getContent()).append("\n```\n\n");
+        }
+
+        String callSiteSection = "";
+        if (!callSites.isEmpty()) {
+            StringBuilder sites = new StringBuilder();
+            for (CallSite site : callSites) {
+                sites.append("- ").append(site.relativeFilePath())
+                        .append(":").append(site.lineNumber())
+                        .append("  in ").append(site.callerQualifiedName())
+                        .append("  calls ").append(site.targetSimpleName())
+                        .append(site.confirmed() ? "  [confirmed]" : "  [unconfirmed - name match only]")
+                        .append("\n");
+            }
+            callSiteSection = """
+
+                    ==== KNOWN CALL SITES ====
+                    Reference analysis found these places that use the code above. If your change
+                    alters a method name, parameters, return type, or visibility, you MUST also
+                    produce EDIT blocks updating every affected call site listed here.
+
+                    Entries marked [unconfirmed] matched by name only and may be unrelated - check
+                    the code before editing them, and skip ones that clearly refer to something else.
+
+                    """ + sites;
         }
 
         return """
@@ -88,7 +129,6 @@ public class PromptBuilder {
                 - Do not explain your reasoning outside the SUMMARY line.
 
                 ==== RELEVANT CODE ====
-                """ + contextBlock;
+                """ + contextBlock + callSiteSection;
     }
-
 }

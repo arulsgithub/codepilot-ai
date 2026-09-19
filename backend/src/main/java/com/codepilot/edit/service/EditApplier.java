@@ -22,11 +22,13 @@ import java.util.Set;
 /**
  * Applies approved edits atomically.
  *
- * Three properties this guarantees:
+ * Four properties this guarantees:
  *  1. Nothing is trusted from the client - paths and match text are re-validated here.
  *  2. Multiple edits to one file apply SEQUENTIALLY against the evolving content.
  *  3. All-or-nothing: validation happens entirely before any write, and a failed write
  *     rolls every file back.
+ *  4. A file's original line endings survive the edit - matching happens on LF-normalised
+ *     text, but what gets written back uses whatever the file already used.
  */
 @Service
 public class EditApplier {
@@ -72,6 +74,8 @@ public class EditApplier {
         }
 
         // ---- Phase 2: validate everything and compute final content, WITHOUT writing ----
+        // originalContent holds the RAW bytes-as-read, so backups and rollback restore the file
+        // exactly as it was, line endings included.
         Map<Path, String> originalContent = new LinkedHashMap<>();
         Map<Path, String> newContent = new LinkedHashMap<>();
 
@@ -90,16 +94,16 @@ public class EditApplier {
                 continue;
             }
 
-            String content;
+            String rawContent;
             long actualModified;
             try {
-                content = Files.readString(target);
+                rawContent = Files.readString(target);
                 actualModified = Files.getLastModifiedTime(target).toMillis();
             } catch (IOException e) {
                 problems.add(relativePath + ": could not read - " + e.getMessage());
                 continue;
             }
-            originalContent.put(target, content);
+            originalContent.put(target, rawContent);
 
             // Conflict detection: if the file changed since we planned against it (you edited it
             // in your IDE, or a git operation touched it), the diff you approved is stale.
@@ -110,8 +114,11 @@ public class EditApplier {
                 continue;
             }
 
-            String working = content;
+            // Remember the file's own convention, then work entirely in LF.
+            boolean crlf = LineEndings.usesCrlf(rawContent);
+            String working = LineEndings.normalize(rawContent);
             boolean fileFailed = false;
+
             for (ApplyEditsRequest.ApprovedEdit edit : entry.getValue()) {
                 FileEdit fileEdit = new FileEdit(relativePath, edit.searchText(), edit.replaceText());
 
@@ -121,15 +128,17 @@ public class EditApplier {
                     break;
                 }
 
+                String normalizedSearch = LineEndings.normalize(fileEdit.searchText());
+
                 // Validate against the WORKING copy, so edit #2 sees edit #1's result.
-                int first = working.indexOf(fileEdit.searchText());
+                int first = working.indexOf(normalizedSearch);
                 if (first < 0) {
                     problems.add(relativePath
                             + ": SEARCH text not found (it may overlap another edit in this batch)");
                     fileFailed = true;
                     break;
                 }
-                if (working.indexOf(fileEdit.searchText(), first + 1) >= 0) {
+                if (working.indexOf(normalizedSearch, first + 1) >= 0) {
                     problems.add(relativePath + ": SEARCH text appears more than once - ambiguous");
                     fileFailed = true;
                     break;
@@ -138,7 +147,9 @@ public class EditApplier {
             }
 
             if (!fileFailed) {
-                newContent.put(target, working);
+                // Restore the file's original line endings before this ever reaches disk.
+                // Writing LF into a CRLF file would show every line as changed in git.
+                newContent.put(target, LineEndings.restore(working, crlf));
             }
         }
 

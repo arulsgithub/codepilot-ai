@@ -40,19 +40,35 @@ public class EditValidator {
             return "Could not read file: " + e.getMessage();
         }
 
+        // Compare LF-normalised text on both sides. The file may use CRLF while the model always
+        // emits LF; without this, an exact match fails on text that is character-for-character
+        // identical to a human reader.
+        String normalizedContent = LineEndings.normalize(content);
+        String normalizedSearch = LineEndings.normalize(edit.searchText());
+
         // Exactly-once is the core safety rule of the search/replace format.
-        int first = content.indexOf(edit.searchText());
+        int first = normalizedContent.indexOf(normalizedSearch);
         if (first < 0) {
             return "SEARCH text not found in file (the model may have invented or abbreviated it)";
         }
-        if (content.indexOf(edit.searchText(), first + 1) >= 0) {
+        if (normalizedContent.indexOf(normalizedSearch, first + 1) >= 0) {
             return "SEARCH text appears more than once - the edit is ambiguous";
         }
         return null;
     }
 
-    /** Applies the edit in memory only - used to render the preview diff. */
+    /**
+     * Applies the edit in memory only - used to render the preview diff and to build the new
+     * content before writing.
+     *
+     * Returns LF-normalised text. Callers that write to disk must restore the file's original
+     * line endings with LineEndings.restore(); callers that only diff can use it as-is, because
+     * String.lines() ignores the line-terminator style on both sides.
+     */
     public String applyInMemory(String originalContent, FileEdit edit) {
-        return originalContent.replace(edit.searchText(), edit.replaceText());
+        String normalizedContent = LineEndings.normalize(originalContent);
+        String normalizedSearch = LineEndings.normalize(edit.searchText());
+        String normalizedReplace = LineEndings.normalize(edit.replaceText());
+        return normalizedContent.replace(normalizedSearch, normalizedReplace);
     }
 }

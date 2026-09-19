@@ -115,6 +115,17 @@
             <version>4.12</version>
         </dependency>
 
+        <!--
+    JGit: a pure-Java Git implementation. We use it instead of shelling out to
+    the `git` binary so the backend has no external process dependency - it will
+    behave identically on your Windows machine, in Docker, and on a server.
+-->
+        <dependency>
+            <groupId>org.eclipse.jgit</groupId>
+            <artifactId>org.eclipse.jgit</artifactId>
+            <version>7.7.1.202607240634-r</version>
+        </dependency>
+
 	</dependencies>
 
 	<build>

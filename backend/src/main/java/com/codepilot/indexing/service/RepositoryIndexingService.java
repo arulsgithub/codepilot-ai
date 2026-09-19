@@ -50,6 +50,8 @@ public class RepositoryIndexingService {
     private final FileFilter fileFilter;
     private final ChunkPersistenceService chunkPersistenceService;
     private final SymbolIndexingService symbolIndexingService;
+    /** 0 for a local embedding server; ~1000 when using a rate-limited hosted provider. */
+    private static final int EMBEDDING_PACING_MILLIS = 0;
 
     public RepositoryIndexingService(RepositoryIngestionService ingestionService,
                                      SourceFileParsingService parsingService,
@@ -137,9 +139,10 @@ public class RepositoryIndexingService {
         int totalBatches = (chunks.size() + EMBEDDING_BATCH_SIZE - 1) / EMBEDDING_BATCH_SIZE;
 
         for (int i = 0; i < chunks.size(); i += EMBEDDING_BATCH_SIZE) {
-            if (i > 0) {
-                // Space out embedding calls so we don't trip the provider's per-minute rate limit.
-                sleep(1000);
+            if (i > 0 && EMBEDDING_PACING_MILLIS > 0) {
+                // Hosted providers rate-limit per minute; a local Ollama server does not, so this
+                // pacing is pure wasted wall-clock time there.
+                sleep(EMBEDDING_PACING_MILLIS);
             }
             int batchNumber = (i / EMBEDDING_BATCH_SIZE) + 1;
             // Progress logging: a silent multi-minute run is indistinguishable from a hung one.

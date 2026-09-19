@@ -1,5 +1,6 @@
 package com.codepilot.parsing.service;
 
+import com.codepilot.edit.service.LineEndings;
 import com.codepilot.parsing.dto.CodeUnit;
 import com.codepilot.parsing.dto.CodeUnitType;
 import com.github.javaparser.JavaParser;
@@ -7,13 +8,14 @@ import com.github.javaparser.ParseProblemException;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.*;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * Turns one Java source file's text into a flat list of CodeUnits (classes, methods,
@@ -42,6 +44,13 @@ public class JavaAstParser {
         CompilationUnit compilationUnit = parseResult.getResult()
                 .filter(cu -> parseResult.isSuccessful())
                 .orElseThrow(() -> new ParseProblemException(parseResult.getProblems()));
+
+        // The file's real lines, kept so every unit's content is the ORIGINAL text.
+        // See originalText() below for why this matters.
+        // Normalise first: a CRLF file would otherwise leave a trailing '\r' on every chunk line,
+        // which reaches the model as invisible noise.
+        String[] sourceLines = LineEndings.normalize(sourceCode).split("\n", -1);
+
         List<CodeUnit> units = new ArrayList<>();
 
         compilationUnit.accept(new VoidVisitorAdapter<Void>() {
@@ -53,7 +62,8 @@ public class JavaAstParser {
                         relativeFilePath,
                         qualifiedNameOf(decl),
                         decl.getNameAsString(),
-                        decl
+                        decl,
+                        sourceLines
                 ));
                 super.visit(decl, arg); // still descend into methods/fields inside
             }
@@ -65,7 +75,8 @@ public class JavaAstParser {
                         relativeFilePath,
                         qualifiedNameOf(decl),
                         decl.getNameAsString(),
-                        decl
+                        decl,
+                        sourceLines
                 ));
                 super.visit(decl, arg);
             }
@@ -77,7 +88,8 @@ public class JavaAstParser {
                         relativeFilePath,
                         qualifiedNameOf(decl) + "#" + decl.getNameAsString(),
                         decl.getDeclarationAsString(false, false, true),
-                        decl
+                        decl,
+                        sourceLines
                 ));
                 super.visit(decl, arg);
             }
@@ -89,7 +101,8 @@ public class JavaAstParser {
                         relativeFilePath,
                         qualifiedNameOf(decl) + "#<init>",
                         decl.getDeclarationAsString(false, false, true),
-                        decl
+                        decl,
+                        sourceLines
                 ));
                 super.visit(decl, arg);
             }
@@ -103,7 +116,8 @@ public class JavaAstParser {
                         relativeFilePath,
                         qualifiedNameOf(decl) + "#" + variable.getNameAsString(),
                         decl.toString().trim(),
-                        decl
+                        decl,
+                        sourceLines
                 )));
                 super.visit(decl, arg);
             }
@@ -114,17 +128,46 @@ public class JavaAstParser {
     }
 
     private CodeUnit toCodeUnit(CodeUnitType type, String relativeFilePath, String qualifiedName,
-                                String signature, com.github.javaparser.ast.Node node) {
-        int startLine = node.getBegin().map(p -> p.line).orElse(0);
+                                String signature, Node node, String[] sourceLines) {
+        int startLine = startLineOf(node);
         int endLine = node.getEnd().map(p -> p.line).orElse(0);
-        return new CodeUnit(type, relativeFilePath, qualifiedName, signature, node.toString(), startLine, endLine);
+        return new CodeUnit(type, relativeFilePath, qualifiedName, signature,
+                originalText(node, sourceLines, startLine, endLine), startLine, endLine);
     }
 
     /**
-     * Builds "com.codepilot.chat.service.ChatService" style names by walking up through any
-     * enclosing type declarations and prefixing the file's package - needed so two classes
-     * named "Builder" in different packages don't collide in the vector store later.
+     * Start line INCLUDING the element's doc comment, if it has one.
+     *
+     * JavaParser reports a declaration's begin position after its Javadoc, but the comment is
+     * genuinely part of what a reader (or an editing model) needs to see, and including it keeps
+     * the stored text contiguous with what's in the file.
      */
+    private int startLineOf(Node node) {
+        return node.getComment()
+                .flatMap(comment -> comment.getBegin())
+                .map(position -> position.line)
+                .orElseGet(() -> node.getBegin().map(position -> position.line).orElse(0));
+    }
+
+    /**
+     * Returns the element's text EXACTLY as it appears in the file, including leading indentation.
+     *
+     * This must never be node.toString(): JavaParser re-prints a node from the AST rather than
+     * echoing the source, which normalises indentation to column 0. Chunks built that way don't
+     * match the real file - fine for answering questions, fatal for the edit feature, whose whole
+     * safety model is that SEARCH text matches the file byte-for-byte.
+     *
+     * Slicing whole lines (rather than exact column offsets) is deliberate: it preserves the
+     * leading whitespace, which is precisely what was being lost.
+     */
+    private String originalText(Node node, String[] sourceLines, int startLine, int endLine) {
+        if (startLine < 1 || endLine < startLine || endLine > sourceLines.length) {
+            // Shouldn't happen, but a re-printed body beats losing the unit entirely.
+            return node.toString();
+        }
+        return String.join("\n", Arrays.copyOfRange(sourceLines, startLine - 1, endLine));
+    }
+
     /**
      * Delegates to JavaNames so code chunks and symbols (SymbolExtractor) always agree on
      * qualified names - they are joined on this string.
