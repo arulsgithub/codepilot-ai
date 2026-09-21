@@ -38,7 +38,7 @@ export class EditService {
    *
    * A 409 response (a conflict, e.g. the file changed on disk since planning)
    * surfaces as an `HttpErrorResponse` whose `.error` is an
-   * {@link ApplyEditsResponse} with `applied: false` and a populated
+   * {@link ApplyEditsResponse} with `success: false` and a populated
    * `problems` array. The caller is responsible for treating that as an
    * expected outcome rather than a generic failure.
    */

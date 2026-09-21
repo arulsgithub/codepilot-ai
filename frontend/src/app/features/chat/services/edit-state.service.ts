@@ -65,6 +65,16 @@ export class EditStateService {
   readonly repositoryRoot = this.chatState.repositoryRoot;
   readonly hasRepository = this.chatState.repositoryAttached;
 
+  /** Id of the selected registry repository (null for a legacy path-only attachment). */
+  readonly repositoryId = this.chatState.repositoryId;
+
+  /**
+   * True when applying will open a pull request instead of writing files in
+   * place. Drives the confirmation and progress wording so the user is never
+   * told "write to disk" for a change that is really a branch + PR.
+   */
+  readonly isGithubTarget = computed(() => this.chatState.repositorySourceType() === 'GITHUB');
+
   /**
    * Whether Apply may be offered. Mirrors the backend's own gate: a plan is
    * under review AND every preview validated. Client-side only — the backend
@@ -149,6 +159,18 @@ export class EditStateService {
       })),
     };
 
+    // For a registered repository, identify it BY ID and pass the user's own
+    // words along. The backend only takes the branch/commit/pull-request route
+    // when it sees a repositoryId — a path alone always means "write in place",
+    // even for a GitHub clone — and for GitHub the instruction becomes the
+    // branch name, commit message and PR title. A legacy path-only attachment
+    // has no id, so its request stays exactly as before.
+    const repositoryId = this.repositoryId();
+    if (repositoryId) {
+      request.repositoryId = repositoryId;
+      request.instruction = this._instruction();
+    }
+
     this.applySubscription?.unsubscribe();
     this._state.set('applying');
     this._errorMessage.set(null);
@@ -216,6 +238,17 @@ export class EditStateService {
     if (err.status === 0) {
       return 'Unable to reach the CodePilot backend. The edit was not applied.';
     }
-    return 'Applying the edit failed. Your files were not changed.';
+    // The backend writes human-readable messages on purpose for the failures
+    // it anticipates (e.g. "Sync it before applying edits", a push or
+    // pull-request failure), so surface those rather than a generic line. A bare
+    // 500 only carries the catch-all "An unexpected error occurred.", which is
+    // less useful than the reassurance below, so it keeps the fallback.
+    const body = err.error as { message?: unknown } | null;
+    if (err.status !== 500 && body && typeof body.message === 'string' && body.message.trim()) {
+      return body.message;
+    }
+    return this.isGithubTarget()
+      ? 'Opening the pull request failed. The base branch was not changed.'
+      : 'Applying the edit failed. Your files were not changed.';
   }
 }

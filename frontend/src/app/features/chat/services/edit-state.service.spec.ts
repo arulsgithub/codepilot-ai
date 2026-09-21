@@ -6,6 +6,7 @@ import { WritableSignal, computed, signal } from '@angular/core';
 import { EditStateService } from './edit-state.service';
 import { EditService } from '../../../core/services/edit.service';
 import { ChatStateService } from './chat-state.service';
+import { RepositorySourceType } from '../../../core/models/repository.model';
 import {
   ApplyEditsResponse,
   EditPlanResponse,
@@ -51,11 +52,16 @@ describe('EditStateService', () => {
   let planSpy: jasmine.Spy;
   let applySpy: jasmine.Spy;
   let repositoryRoot: WritableSignal<string | null>;
+  let repositoryId: WritableSignal<string | null>;
+  let repositorySourceType: WritableSignal<RepositorySourceType | null>;
 
   beforeEach(() => {
     planSpy = jasmine.createSpy('planEdits');
     applySpy = jasmine.createSpy('applyEdits');
     repositoryRoot = signal<string | null>('E:\\repos\\codepilot');
+    // Default: a hand-attached path (no registry id) — the legacy flow.
+    repositoryId = signal<string | null>(null);
+    repositorySourceType = signal<RepositorySourceType | null>(null);
 
     TestBed.configureTestingModule({
       providers: [
@@ -66,6 +72,8 @@ describe('EditStateService', () => {
           useValue: {
             repositoryRoot: repositoryRoot.asReadonly(),
             repositoryAttached: computed(() => repositoryRoot() !== null),
+            repositoryId: repositoryId.asReadonly(),
+            repositorySourceType: repositorySourceType.asReadonly(),
           },
         },
       ],
@@ -119,7 +127,7 @@ describe('EditStateService', () => {
     service.planEdits('add null-checking');
 
     const success: ApplyEditsResponse = {
-      applied: true,
+      success: true,
       message: 'Applied edits to 1 file(s); 4 chunk(s) re-indexed',
       changedFiles: ['src/main/java/com/codepilot/chat/service/ChatService.java'],
       backupLocation: 'E:\\repos\\codepilot\\.codepilot-backups\\20260910-143022',
@@ -161,7 +169,7 @@ describe('EditStateService', () => {
           new HttpErrorResponse({
             status: 409,
             error: {
-              applied: false,
+              success: false,
               message: 'Edits were not applied',
               changedFiles: [],
               backupLocation: null,
@@ -201,6 +209,117 @@ describe('EditStateService', () => {
     expect(service.state()).toBe('error');
     expect(service.errorMessage()).toBeTruthy();
     expect(service.conflictProblems()).toEqual([]);
+  });
+
+  describe('delivery by registered repository (GitHub pull request flow)', () => {
+    const REPO_ID = '3f0c2b7e-1111-4222-8333-444455556666';
+
+    const PR_RESPONSE: ApplyEditsResponse = {
+      success: true,
+      message: 'Opened pull request https://github.com/o/r/pull/7',
+      changedFiles: ['src/main/java/com/codepilot/chat/service/ChatService.java'],
+      backupLocation: null,
+      problems: [],
+      sourceType: 'GITHUB',
+      branch: 'codepilot/add-null-checking-1a2b3c',
+      commitSha: '9f8e7d6c5b4a39281706f5e4d3c2b1a098765432',
+      pullRequestUrl: 'https://github.com/o/r/pull/7',
+    };
+
+    beforeEach(() => {
+      planSpy.and.returnValue(of(VALID_PLAN));
+      service.planEdits('add null-checking to ChatService.chat');
+    });
+
+    it('sends repositoryId and the instruction for a registry repository, so the backend can open a PR', () => {
+      repositoryId.set(REPO_ID);
+      repositorySourceType.set('GITHUB');
+      applySpy.and.returnValue(of(PR_RESPONSE));
+
+      service.applyPlan();
+
+      const request = applySpy.calls.mostRecent().args[0];
+      expect(request.repositoryId).toBe(REPO_ID);
+      // The instruction becomes the branch name, commit message and PR title.
+      expect(request.instruction).toBe('add null-checking to ChatService.chat');
+      expect(request.edits.length).toBe(1);
+      expect(service.applyResult()).toEqual(PR_RESPONSE);
+      expect(service.state()).toBe('applied');
+    });
+
+    it('also sends repositoryId for a registered LOCAL repository', () => {
+      repositoryId.set(REPO_ID);
+      repositorySourceType.set('LOCAL');
+      applySpy.and.returnValue(of({ ...PR_RESPONSE, sourceType: 'LOCAL', pullRequestUrl: null }));
+
+      service.applyPlan();
+
+      expect(applySpy.calls.mostRecent().args[0].repositoryId).toBe(REPO_ID);
+    });
+
+    it('leaves a legacy path-only attachment exactly as before — no id, no instruction', () => {
+      applySpy.and.returnValue(of(PR_RESPONSE));
+
+      service.applyPlan();
+
+      const request = applySpy.calls.mostRecent().args[0];
+      expect(request.repositoryRoot).toBe('E:\\repos\\codepilot');
+      expect('repositoryId' in request).toBeFalse();
+      expect('instruction' in request).toBeFalse();
+    });
+
+    it('reports a GitHub target only for a GitHub repository', () => {
+      expect(service.isGithubTarget()).toBeFalse();
+
+      repositorySourceType.set('LOCAL');
+      expect(service.isGithubTarget()).toBeFalse();
+
+      repositorySourceType.set('GITHUB');
+      expect(service.isGithubTarget()).toBeTrue();
+    });
+
+    it("shows the backend's own message for an anticipated failure (e.g. a repository that was never synced)", () => {
+      repositoryId.set(REPO_ID);
+      repositorySourceType.set('GITHUB');
+      applySpy.and.returnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 502,
+              error: {
+                message: "Repository 'r' has no recorded branch. Sync it before applying edits.",
+              },
+            })
+        )
+      );
+
+      service.applyPlan();
+
+      expect(service.state()).toBe('error');
+      expect(service.errorMessage()).toBe(
+        "Repository 'r' has no recorded branch. Sync it before applying edits."
+      );
+    });
+
+    it('keeps a reassuring fallback for a bare 500, worded for a pull request when GitHub', () => {
+      repositoryId.set(REPO_ID);
+      repositorySourceType.set('GITHUB');
+      applySpy.and.returnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 500,
+              error: { message: 'An unexpected error occurred.' },
+            })
+        )
+      );
+
+      service.applyPlan();
+
+      expect(service.errorMessage()).toBe(
+        'Opening the pull request failed. The base branch was not changed.'
+      );
+    });
   });
 
   it('surfaces a plan failure as the error state', () => {

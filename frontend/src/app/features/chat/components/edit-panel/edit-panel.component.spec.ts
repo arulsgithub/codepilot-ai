@@ -28,6 +28,7 @@ class FakeEditState {
   repositoryRoot: WritableSignal<string | null> = signal<string | null>('E:\\repos\\codepilot');
   hasRepository = signal(true);
   canApply = signal(false);
+  isGithubTarget = signal(false);
 
   planEdits = jasmine.createSpy('planEdits');
   planAgain = jasmine.createSpy('planAgain');
@@ -201,7 +202,7 @@ describe('EditPanelComponent', () => {
   it('shows the message, changed files and backup path after a successful apply', () => {
     fake.state.set('applied');
     fake.applyResult.set({
-      applied: true,
+      success: true,
       message: 'Applied edits to 2 file(s); 14 chunk(s) re-indexed',
       changedFiles: ['path/one.java', 'path/two.java'],
       backupLocation: 'E:\\repos\\codepilot\\.codepilot-backups\\20260910-143022',
@@ -216,6 +217,125 @@ describe('EditPanelComponent', () => {
     expect(text).toContain('.codepilot-backups\\20260910-143022');
     // No Apply affordance survives a successful apply.
     expect(html().querySelector('.btn--danger')).toBeNull();
+  });
+
+  describe('GitHub delivery (pull request)', () => {
+    const PR_URL = 'https://github.com/spring-projects/spring-petclinic/pull/42';
+
+    function githubResult(overrides: Partial<ApplyEditsResponse> = {}): ApplyEditsResponse {
+      return {
+        success: true,
+        message: `Opened pull request ${PR_URL}`,
+        changedFiles: ['src/main/java/org/springframework/samples/petclinic/owner/Owner.java'],
+        backupLocation: null,
+        problems: [],
+        sourceType: 'GITHUB',
+        branch: 'codepilot/add-null-check-1a2b3c',
+        commitSha: '9f8e7d6c5b4a39281706f5e4d3c2b1a098765432',
+        pullRequestUrl: PR_URL,
+        ...overrides,
+      };
+    }
+
+    function showResult(result: ApplyEditsResponse): void {
+      fake.isGithubTarget.set(true);
+      fake.state.set('applied');
+      fake.applyResult.set(result);
+      fixture.detectChanges();
+    }
+
+    it('leads with the pull request as a prominent, safe external link', () => {
+      showResult(githubResult());
+
+      const link = html().querySelector('.pr-link') as HTMLAnchorElement;
+      expect(link).not.toBeNull();
+      expect(link.href).toBe(PR_URL);
+      expect(link.target).toBe('_blank');
+      expect(link.rel).toContain('noopener');
+      expect(link.textContent).toContain('View pull request on GitHub');
+      expect(html().querySelector('.pr-eyebrow')!.textContent).toContain('Pull request opened');
+      // The raw URL is shown too, so it can be read/copied even where links are awkward.
+      expect(html().querySelector('.pr-url')!.textContent).toContain(PR_URL);
+    });
+
+    it('shows the branch and the short commit sha', () => {
+      showResult(githubResult());
+
+      const meta = html().querySelector('.pr-meta')!.textContent!;
+      expect(meta).toContain('codepilot/add-null-check-1a2b3c');
+      expect(meta).toContain('9f8e7d6c');
+      expect(meta).not.toContain('9f8e7d6c5');
+    });
+
+    it('does NOT show the LOCAL "applied to N files" success line or a backup path', () => {
+      showResult(githubResult());
+
+      expect(html().querySelector('.status--ok')).toBeNull();
+      expect(html().textContent).not.toContain('Backup (for manual undo)');
+    });
+
+    it('still lists the changed files', () => {
+      showResult(githubResult());
+
+      expect(html().querySelector('.result-files')!.textContent).toContain('Owner.java');
+    });
+
+    it('explains the changes are on a branch, not merged', () => {
+      showResult(githubResult());
+
+      expect(html().querySelector('.pr-note')!.textContent).toContain('not merged');
+      expect(html().querySelector('.pr-note')!.textContent).toContain('base branch is untouched');
+    });
+
+    it('does not turn a non-https URL into a link, but still shows it as text', () => {
+      showResult(githubResult({ pullRequestUrl: 'javascript:alert(1)' }));
+
+      expect(html().querySelector('.pr-link')).toBeNull();
+      expect(html().querySelector('.pr-url')!.textContent).toContain('javascript:alert(1)');
+    });
+
+    it('says plainly that no pull request was opened when the edits produced no diff', () => {
+      showResult(
+        githubResult({
+          message: 'The edits produced no changes - the code already matched.',
+          changedFiles: [],
+          branch: null,
+          commitSha: null,
+          pullRequestUrl: null,
+        })
+      );
+
+      expect(html().querySelector('.pr-card')).toBeNull();
+      expect(html().textContent).toContain('No pull request was opened.');
+      expect(html().textContent).toContain('the code already matched');
+      // Not dressed up as a success.
+      expect(html().querySelector('.status--ok')).toBeNull();
+    });
+
+    it('words the confirmation and the progress state for a pull request, not for disk', () => {
+      fake.isGithubTarget.set(true);
+      fake.state.set('reviewing');
+      fake.plan.set({ summary: 's', applicable: true, previews: [validPreview()] });
+      fake.canApply.set(true);
+      fixture.detectChanges();
+
+      fixture.debugElement.query(By.css('.btn--danger')).nativeElement.click();
+      fixture.detectChanges();
+
+      const confirm = html().querySelector('.confirm')!.textContent!;
+      expect(confirm).toContain('Open a pull request with 1 file?');
+      expect(confirm).toContain('base branch is not');
+      expect(confirm).not.toContain('to disk');
+      expect(html().querySelector('.confirm-actions .btn--danger')!.textContent).toContain(
+        'Yes, open pull request'
+      );
+
+      fake.state.set('applying');
+      fixture.detectChanges();
+      expect(html().querySelector('.status--working')!.textContent).toContain(
+        'opening a pull request'
+      );
+    });
   });
 
   it('renders a 409 conflict as its problem list with a "Plan again" action and no generic error', () => {

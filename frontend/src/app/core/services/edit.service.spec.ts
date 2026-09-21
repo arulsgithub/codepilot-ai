@@ -66,7 +66,7 @@ describe('EditService', () => {
       ],
     };
     const success: ApplyEditsResponse = {
-      applied: true,
+      success: true,
       message: 'Applied edits to 1 file(s); 3 chunk(s) re-indexed',
       changedFiles: ['ChatService.java'],
       backupLocation: 'E:\\repo\\.codepilot-backups\\20260910-143022',
@@ -84,9 +84,47 @@ describe('EditService', () => {
     expect(result).toEqual(success);
   });
 
+  it('POSTs repositoryId + instruction and returns the GitHub pull-request fields', () => {
+    const request: ApplyEditsRequest = {
+      repositoryId: '3f0c2b7e-1111-4222-8333-444455556666',
+      instruction: 'add null-checking to ChatService.chat',
+      edits: [
+        {
+          relativeFilePath: 'ChatService.java',
+          searchText: 'old',
+          replaceText: 'new',
+          expectedLastModifiedMs: 1757612345678,
+        },
+      ],
+    };
+    const github: ApplyEditsResponse = {
+      success: true,
+      message: 'Opened pull request https://github.com/o/r/pull/7',
+      changedFiles: ['ChatService.java'],
+      backupLocation: null,
+      problems: [],
+      sourceType: 'GITHUB',
+      branch: 'codepilot/add-null-checking-1a2b3c',
+      commitSha: '9f8e7d6c5b4a39281706f5e4d3c2b1a098765432',
+      pullRequestUrl: 'https://github.com/o/r/pull/7',
+    };
+
+    let result: ApplyEditsResponse | undefined;
+    service.applyEdits(request).subscribe((r) => (result = r));
+
+    const req = httpMock.expectOne('/api/v1/edits/apply');
+    expect(req.request.body).toEqual(request);
+    expect('repositoryRoot' in req.request.body).toBeFalse();
+    req.flush(github);
+
+    expect(result?.pullRequestUrl).toBe('https://github.com/o/r/pull/7');
+    expect(result?.branch).toBe('codepilot/add-null-checking-1a2b3c');
+    expect(result?.sourceType).toBe('GITHUB');
+  });
+
   it('surfaces a 409 conflict as an HttpErrorResponse carrying the problems body', () => {
     const conflictBody: ApplyEditsResponse = {
-      applied: false,
+      success: false,
       message: 'Edits were not applied',
       changedFiles: [],
       backupLocation: null,

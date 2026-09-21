@@ -167,6 +167,71 @@ describe('ChatStateService (Phase 2 wiring)', () => {
     expect(assistant.content).toBe('Here...');
   });
 
+  describe('answeredWithoutContext (repository attached, nothing retrieved)', () => {
+    function assistantMessage() {
+      return service.messages().find((m) => m.role === 'ASSISTANT')!;
+    }
+
+    it('flags the message when SOURCES arrives with an EMPTY array', () => {
+      service.sendMessageToConversation(CONVERSATION.id, 'what does OwnerController do?');
+
+      stream$.next({ type: 'START', content: null });
+      stream$.next({ type: 'SOURCES', content: null, sources: [] });
+
+      // Flagged the instant SOURCES lands — before any token — so the notice is
+      // visible for the whole answer, not added after the fact.
+      expect(assistantMessage().answeredWithoutContext).toBeTrue();
+      expect(assistantMessage().content).toBe('');
+
+      stream$.next({ type: 'TOKEN', content: 'It handles owners.' });
+      stream$.next({ type: 'COMPLETE', content: null });
+      stream$.complete();
+
+      expect(assistantMessage().answeredWithoutContext).toBeTrue();
+      expect(assistantMessage().content).toBe('It handles owners.');
+    });
+
+    it('does NOT flag a message whose SOURCES event has entries', () => {
+      service.sendMessageToConversation(CONVERSATION.id, 'explain ChatService');
+
+      stream$.next({ type: 'START', content: null });
+      stream$.next({
+        type: 'SOURCES',
+        content: null,
+        sources: [
+          { filePath: 'a/B.java', qualifiedName: 'a.B#c', startLine: 1, endLine: 9 },
+        ],
+      });
+      stream$.next({ type: 'TOKEN', content: 'grounded' });
+      stream$.next({ type: 'COMPLETE', content: null });
+      stream$.complete();
+
+      expect(assistantMessage().answeredWithoutContext).toBeFalse();
+      expect(assistantMessage().sources?.length).toBe(1);
+    });
+
+    it('leaves the flag unset when there is no SOURCES event at all (plain chat, no repository)', () => {
+      service.sendMessageToConversation(CONVERSATION.id, 'hi');
+
+      stream$.next({ type: 'START', content: null });
+      stream$.next({ type: 'TOKEN', content: 'hello' });
+      stream$.next({ type: 'COMPLETE', content: null });
+      stream$.complete();
+
+      expect(assistantMessage().answeredWithoutContext).toBeUndefined();
+      expect(assistantMessage().sources).toBeUndefined();
+    });
+
+    it('treats a SOURCES event with a missing sources field as empty rather than as grounded', () => {
+      service.sendMessageToConversation(CONVERSATION.id, 'hi');
+
+      stream$.next({ type: 'START', content: null });
+      stream$.next({ type: 'SOURCES', content: null });
+
+      expect(assistantMessage().answeredWithoutContext).toBeTrue();
+    });
+  });
+
   it('leaves messages without a SOURCES event exactly as before', () => {
     service.sendMessageToConversation(CONVERSATION.id, 'hi');
 
@@ -274,6 +339,24 @@ describe('ChatStateService (Phase 2 wiring)', () => {
       service.sendMessageToConversation(CONVERSATION.id, 'hi');
       expect(lastRequest().repositoryId).toBeUndefined();
       expect(lastRequest().repositoryRoot).toBe('E:\typed\path');
+    });
+
+    it('exposes the selected repository id and source type (the edit flow reads these)', () => {
+      expect(service.repositoryId()).toBeNull();
+      expect(service.repositorySourceType()).toBeNull();
+
+      registerAndSelect();
+
+      expect(service.repositoryId()).toBe('r-registered');
+      expect(service.repositorySourceType()).toBe('GITHUB');
+    });
+
+    it('has no repository id for a legacy path-only attachment', () => {
+      indexRepositorySpy.and.returnValue(of({ repositoryRoot: 'E:\\legacy', chunksIndexed: 1 }));
+      service.indexRepository('E:\\legacy');
+
+      expect(service.repositoryRoot()).toBe('E:\\legacy');
+      expect(service.repositoryId()).toBeNull();
     });
 
     it('detachRepository clears the registry selection too', () => {

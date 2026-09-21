@@ -45,4 +45,15 @@ export interface ChatMessageViewModel {
    * without them — that is expected and simply renders nothing.
    */
   sources?: SourceReference[];
+  /**
+   * True when a repository was attached to this turn but retrieval found
+   * nothing (a `SOURCES` event with an EMPTY array), so the answer comes from
+   * the model's general knowledge alone and may not reflect the user's code.
+   *
+   * Undefined — not false — for turns with no repository (no `SOURCES` event)
+   * and for messages loaded from history, which carry no such information.
+   * The UI must surface `true` prominently: a confident answer with no
+   * grounding is the failure this flag exists to expose.
+   */
+  answeredWithoutContext?: boolean;
 }

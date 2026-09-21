@@ -5,6 +5,7 @@ import { MessageService } from '../../../core/services/message.service';
 import { ChatService, HttpStreamError } from '../../../core/services/chat.service';
 import { IndexingService } from '../../../core/services/indexing.service';
 import { RepositoryService } from '../../../core/services/repository.service';
+import { RepositorySourceType } from '../../../core/models/repository.model';
 import { Conversation } from '../../../core/models/conversation.model';
 import { ChatMessageViewModel } from '../../../core/models/message.model';
 import { ChatRequest, ChatState, ModeSelection, SourceReference } from '../../../core/models/chat.model';
@@ -87,6 +88,18 @@ export class ChatStateService {
     () => this.repositories.selectedRepository()?.localPath ?? this._repositoryRoot()
   );
   readonly repositoryAttached = computed(() => !!this.repositoryRoot());
+
+  /**
+   * Id of the selected REGISTRY repository, or null (nothing selected, or only
+   * a legacy hand-typed path is attached). Lets the edit flow ask the backend
+   * to deliver by id — the only way a GitHub repository can get a pull request.
+   */
+  readonly repositoryId = computed(() => this.repositories.selectedRepository()?.id ?? null);
+
+  /** Origin of the selected registry repository, or null. Drives GitHub-vs-local wording. */
+  readonly repositorySourceType = computed<RepositorySourceType | null>(
+    () => this.repositories.selectedRepository()?.sourceType ?? null
+  );
 
   private readonly _indexingStatus = signal<IndexingStatus>(
     this._repositoryRoot() ? 'success' : 'idle'
@@ -413,9 +426,12 @@ export class ChatStateService {
               this._chatState.set('streaming');
               break;
             case 'SOURCES':
-              // Emitted once, before the first token, only when the answer
-              // used repository context. Attach to the in-flight assistant
-              // message; nothing else about the pipeline changes.
+              // Emitted once, before the first token, whenever a repository
+              // was attached to the turn. A NON-empty list is the evidence the
+              // answer drew on; an EMPTY list means retrieval found nothing,
+              // so the answer is general knowledge presented in a code-help
+              // context — attachSources flags that rather than letting it pass.
+              // (No SOURCES event at all is plain chat, which is normal.)
               this.attachSources(assistantClientId, event.sources ?? []);
               break;
             case 'TOKEN':
@@ -553,8 +569,11 @@ export class ChatStateService {
   }
 
   private attachSources(assistantClientId: string, sources: SourceReference[]): void {
+    const answeredWithoutContext = sources.length === 0;
     this._messages.update((list) =>
-      list.map((m) => (m.clientId === assistantClientId ? { ...m, sources } : m))
+      list.map((m) =>
+        m.clientId === assistantClientId ? { ...m, sources, answeredWithoutContext } : m
+      )
     );
   }
 

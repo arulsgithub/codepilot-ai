@@ -41,6 +41,20 @@
       </div>
     </div>
 
+    <!--
+      Shown BEFORE the answer text, not after: it has to be read first, and it
+      appears the moment the (empty) SOURCES event arrives — before any token —
+      so a reader never sees an ungrounded answer without it.
+    -->
+    @if (message.role === 'ASSISTANT' && message.answeredWithoutContext) {
+      <div class="no-context-notice" role="alert">
+        <span class="no-context-icon" aria-hidden="true">⚠</span>
+        <span class="no-context-text">
+          <strong>Answered without repository context</strong> - this may not reflect your code.
+        </span>
+      </div>
+    }
+
     @if (message.role === 'USER') {
       <div class="message-content message-content--plain">{{ message.content }}</div>
     } @else {

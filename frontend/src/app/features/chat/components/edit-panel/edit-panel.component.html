@@ -157,22 +157,34 @@
 
           @if (pendingConfirm()) {
             <div class="confirm" role="alertdialog" aria-labelledby="edit-confirm-title">
-              <span id="edit-confirm-title" class="confirm-title">
-                Write {{ validPreviewCount() }}
-                {{ validPreviewCount() === 1 ? 'file' : 'files' }} to disk?
-              </span>
-              <p class="confirm-body">
-                This modifies your real files under
-                <code class="inline-code">{{ state.repositoryRoot() }}</code
-                >. Originals are backed up first, and the change can be undone
-                from that backup.
-              </p>
+              @if (state.isGithubTarget()) {
+                <span id="edit-confirm-title" class="confirm-title">
+                  Open a pull request with {{ validPreviewCount() }}
+                  {{ validPreviewCount() === 1 ? 'file' : 'files' }}?
+                </span>
+                <p class="confirm-body">
+                  CodePilot will create a new branch, commit these changes, push it
+                  to GitHub and open a pull request. The base branch is not
+                  modified — you review and merge the pull request yourself.
+                </p>
+              } @else {
+                <span id="edit-confirm-title" class="confirm-title">
+                  Write {{ validPreviewCount() }}
+                  {{ validPreviewCount() === 1 ? 'file' : 'files' }} to disk?
+                </span>
+                <p class="confirm-body">
+                  This modifies your real files under
+                  <code class="inline-code">{{ state.repositoryRoot() }}</code
+                  >. Originals are backed up first, and the change can be undone
+                  from that backup.
+                </p>
+              }
               <div class="confirm-actions">
                 <button type="button" class="btn btn--secondary" (click)="cancelApply()">
                   Cancel
                 </button>
                 <button type="button" class="btn btn--danger" (click)="confirmApply()">
-                  Yes, apply to disk
+                  {{ state.isGithubTarget() ? 'Yes, open pull request' : 'Yes, apply to disk' }}
                 </button>
               </div>
             </div>
@@ -201,16 +213,68 @@
         @if (state.state() === 'applying') {
           <div class="status status--working" role="status" aria-live="polite">
             <span class="spinner" aria-hidden="true"></span>
-            <span>Writing the approved changes to disk and re-indexing…</span>
+            @if (state.isGithubTarget()) {
+              <span>
+                Creating a branch, committing, pushing and opening a pull request…
+                this can take a little while.
+              </span>
+            } @else {
+              <span>Writing the approved changes to disk and re-indexing…</span>
+            }
           </div>
         }
 
         <!-- ---------- Applied (success) ---------- -->
         @if (state.state() === 'applied' && state.applyResult(); as result) {
-          <div class="status status--ok" role="status">
-            <span aria-hidden="true">✓</span>
-            <span>{{ result.message }}</span>
-          </div>
+          @if (result.pullRequestUrl) {
+            <!-- GITHUB: the pull request IS the result, so it leads — not an "applied to N files" line. -->
+            <div class="pr-card" role="status">
+              <span class="pr-eyebrow"><span aria-hidden="true">✓</span> Pull request opened</span>
+
+              @if (isHttpsUrl(result.pullRequestUrl)) {
+                <a
+                  class="pr-link"
+                  [href]="result.pullRequestUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  View pull request on GitHub <span aria-hidden="true">↗</span>
+                </a>
+              }
+              <code class="pr-url">{{ result.pullRequestUrl }}</code>
+
+              <dl class="pr-meta">
+                @if (result.branch) {
+                  <div>
+                    <dt>Branch</dt>
+                    <dd><code>{{ result.branch }}</code></dd>
+                  </div>
+                }
+                @if (result.commitSha) {
+                  <div>
+                    <dt>Commit</dt>
+                    <dd><code [attr.title]="result.commitSha">{{ shortSha(result.commitSha) }}</code></dd>
+                  </div>
+                }
+              </dl>
+
+              <p class="pr-note">
+                The changes are on that branch, not merged. Review and merge the pull
+                request on GitHub — the base branch is untouched.
+              </p>
+            </div>
+          } @else if (result.sourceType === 'GITHUB') {
+            <!-- GITHUB but nothing pushed (the edits produced no diff): honest, and not styled as a success. -->
+            <div class="status status--working" role="status">
+              <span aria-hidden="true">ℹ</span>
+              <span>No pull request was opened. {{ result.message }}</span>
+            </div>
+          } @else {
+            <div class="status status--ok" role="status">
+              <span aria-hidden="true">✓</span>
+              <span>{{ result.message }}</span>
+            </div>
+          }
 
           @if (result.changedFiles.length > 0) {
             <div class="result-block">

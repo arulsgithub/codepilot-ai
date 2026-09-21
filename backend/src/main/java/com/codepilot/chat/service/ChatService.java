@@ -10,6 +10,7 @@ import com.codepilot.indexing.entity.CodeChunkEntity;
 import com.codepilot.message.dto.MessageResponse;
 import com.codepilot.message.entity.Message;
 import com.codepilot.message.service.MessageService;
+import com.codepilot.repo.service.RepositoryPathResolver;
 import com.codepilot.retrieval.service.RetrievalService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,12 +32,14 @@ public class ChatService {
     private final MessageService messageService;
     private final AIOrchestrator aiOrchestrator;
     private final RetrievalService retrievalService;
+    private final RepositoryPathResolver pathResolver;
 
     public ChatService(MessageService messageService, AIOrchestrator aiOrchestrator,
-                       RetrievalService retrievalService) {
+                       RetrievalService retrievalService, RepositoryPathResolver pathResolver) {
         this.messageService = messageService;
         this.aiOrchestrator = aiOrchestrator;
         this.retrievalService = retrievalService;
+        this.pathResolver = pathResolver;
     }
 
     public ChatResponse chat(ChatRequest request) {
@@ -48,15 +51,27 @@ public class ChatService {
 
         ModelMode mode = resolveMode(request);
 
-        // Retrieve ONCE into a variable (previously this was buried inside the ternary,
-        // so the chunks were discarded and could never be reported back to the client).
-        List<CodeChunkEntity> chunks = hasRepository(request)
-                ? retrievalService.retrieveRelevantChunks(request.message(), request.repositoryRoot())
-                : List.of();
+        // Resolve ONCE, through the shared chokepoint. A repositoryId and a raw repositoryRoot
+        // must canonicalize to the same string, or they address different rows in code_chunks
+        // and one of them silently finds nothing.
+        String repositoryRoot = resolveRepositoryRoot(request);
+
+        List<CodeChunkEntity> chunks = repositoryRoot == null
+                ? List.of()
+                : retrievalService.retrieveRelevantChunks(request.message(), repositoryRoot);
 
         String aiResponse = chunks.isEmpty()
                 ? aiOrchestrator.generateResponse(history, mode)
                 : aiOrchestrator.generateResponse(history, chunks, mode);
+
+        // A repository was asked for but nothing came back: the answer is general knowledge.
+        // Say so in the response rather than letting it pass as repository-grounded.
+        boolean answeredWithoutContext = repositoryRoot != null && chunks.isEmpty();
+        if (answeredWithoutContext) {
+            log.warn("Answered WITHOUT repository context despite a repository being attached "
+                            + "(conversation {}). The answer is from general knowledge only.",
+                    request.conversationId());
+        }
 
         MessageResponse assistantMessage = messageService.createAssistantMessage(
                 request.conversationId(), aiResponse, request.requestId());
@@ -66,7 +81,9 @@ public class ChatService {
                 userMessage.id(),
                 assistantMessage.id(),
                 aiResponse,
-                toSourceReferences(chunks)
+                toSourceReferences(chunks),
+                chunks.size(),
+                answeredWithoutContext
         );
     }
 
@@ -92,7 +109,7 @@ public class ChatService {
 
         // Replay path: the answer already completed but the browser lost the final event.
         // Note: sources are NOT replayed - they aren't persisted with the message, so a
-        // replayed answer arrives without them. See the limitation note below.
+        // replayed answer arrives without them.
         if (completedAssistant != null) {
             return Flux.just(
                     new StreamEvent("START", null),
@@ -103,28 +120,42 @@ public class ChatService {
 
         List<Message> history = messageService.getMessageEntities(request.conversationId());
         ModelMode mode = resolveMode(request);
+        String repositoryRoot = resolveRepositoryRoot(request);
 
         List<CodeChunkEntity> chunks;
         Flux<String> tokens;
         try {
-            chunks = hasRepository(request)
-                    ? retrievalService.retrieveRelevantChunks(request.message(), request.repositoryRoot())
-                    : List.of();
+            chunks = repositoryRoot == null
+                    ? List.of()
+                    : retrievalService.retrieveRelevantChunks(request.message(), repositoryRoot);
 
             tokens = chunks.isEmpty()
                     ? aiOrchestrator.generateStreamingResponse(history, mode)
                     : aiOrchestrator.generateStreamingResponse(history, chunks, mode);
         } catch (Exception exception) {
+            log.error("Retrieval or generation failed for conversation {}",
+                    request.conversationId(), exception);
             return Flux.just(new StreamEvent("START", null), new StreamEvent("ERROR", null));
+        }
+
+        if (repositoryRoot != null && chunks.isEmpty()) {
+            log.warn("Streaming answer WITHOUT repository context despite a repository being "
+                    + "attached (conversation {})", request.conversationId());
         }
 
         StringBuilder answer = new StringBuilder();
 
-        // SOURCES is emitted immediately after START (before any token) so the UI can show
-        // "reading from these files" while the answer streams in. Omitted entirely when
-        // there was no retrieval, so plain chat's event sequence is byte-identical to before.
+        // SOURCES goes out immediately after START so the UI can show "reading from these files"
+        // while the answer streams.
+        //
+        // Changed: when a repository IS attached we now emit SOURCES even when it is EMPTY.
+        // An empty list is exactly the signal the UI needs to warn "answered without repository
+        // context" - omitting the event would make that case indistinguishable from plain chat,
+        // which is precisely the ambiguity that let a fabricated answer through unnoticed.
+        // With no repository attached the event is still omitted entirely, so plain chat's
+        // event sequence is byte-identical to before.
         List<SourceReference> sources = toSourceReferences(chunks);
-        Flux<StreamEvent> prologue = sources.isEmpty()
+        Flux<StreamEvent> prologue = repositoryRoot == null
                 ? Flux.just(new StreamEvent("START", null))
                 : Flux.just(new StreamEvent("START", null),
                 new StreamEvent("SOURCES", null, sources));
@@ -145,6 +176,24 @@ public class ChatService {
                                 .subscribeOn(Schedulers.boundedElastic()))
                         .onErrorResume(exception -> Flux.just(new StreamEvent("ERROR", null)))
         );
+    }
+
+    /**
+     * Turn whichever repository identifier the caller sent into the canonical path, or null
+     * when no repository was attached at all.
+     *
+     * A bad id or path throws IllegalArgumentException from the resolver, which the global
+     * handler turns into a 400. That is deliberate: "you named a repository that does not
+     * exist" is an error worth surfacing, not something to quietly degrade into a
+     * context-free answer.
+     */
+    private String resolveRepositoryRoot(ChatRequest request) {
+        boolean attached = request.repositoryId() != null
+                || (request.repositoryRoot() != null && !request.repositoryRoot().isBlank());
+
+        return attached
+                ? pathResolver.resolve(request.repositoryId(), request.repositoryRoot())
+                : null;
     }
 
     /**
@@ -177,11 +226,8 @@ public class ChatService {
         if (request.mode() != null) {
             return request.mode();
         }
-        return hasRepository(request) ? ModelMode.RAG : ModelMode.CODE;
-    }
-
-    /** Blank and null both mean "no repository attached" - a blank form field is not a repo. */
-    private boolean hasRepository(ChatRequest request) {
-        return request.repositoryRoot() != null && !request.repositoryRoot().isBlank();
+        boolean attached = request.repositoryId() != null
+                || (request.repositoryRoot() != null && !request.repositoryRoot().isBlank());
+        return attached ? ModelMode.RAG : ModelMode.CODE;
     }
 }

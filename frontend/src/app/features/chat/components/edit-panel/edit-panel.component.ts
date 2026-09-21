@@ -158,6 +158,20 @@ export class EditPanelComponent {
     this.closeRequested.emit();
   }
 
+  /**
+   * Only an https URL is rendered as a link. Angular would already refuse a
+   * `javascript:` href, but a pull-request link is the one thing on this screen
+   * the user is meant to click, so it gets an explicit allow-list too.
+   */
+  isHttpsUrl(url: string | null | undefined): url is string {
+    return !!url && url.startsWith('https://');
+  }
+
+  /** First 8 characters of a commit sha, the form people recognise from `git log --oneline`. */
+  shortSha(sha: string | null | undefined): string {
+    return sha ? sha.slice(0, 8) : '';
+  }
+
   trackByPreview(index: number, preview: EditPreview): string {
     return `${index}:${preview.relativeFilePath}`;
   }
