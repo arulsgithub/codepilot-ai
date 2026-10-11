@@ -1,0 +1,21 @@
+# Build output - rebuilt inside the image. Copying it in would also risk shipping a
+# stale jar built on a different JDK.
+backend/target/
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+
+# Cloned repositories. Without this the build context includes every repo a user ever
+# cloned - gigabytes sent to the Docker daemon on every single build.
+backend/codepilot-workspace/
+**/.codepilot-backups/
+
+.git/
+.idea/
+*.iml
+.vscode/
+
+# Never. Secrets belong in platform environment variables.
+.env
+.env.*
+**/*.secret

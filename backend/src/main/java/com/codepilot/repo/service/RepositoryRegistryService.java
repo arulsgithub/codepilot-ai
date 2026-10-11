@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -161,10 +162,6 @@ public class RepositoryRegistryService {
      * them accept a repository id instead - and because it goes through require(), they all
      * get the ownership check without knowing it exists.
      */
-    @Transactional(readOnly = true)
-    public String resolvePath(UUID id) {
-        return require(id).getLocalPath();
-    }
 
     @Transactional
     public void markIndexed(UUID id) {
@@ -215,6 +212,47 @@ public class RepositoryRegistryService {
             entity.setLastIndexedAt(OffsetDateTime.now());
             repositories.save(entity);
         });
+    }
+
+    /**
+     * The method every other part of the system calls: id in, path out.
+     *
+     * Also repairs a missing clone. Deployment platforms give you an EPHEMERAL filesystem -
+     * every restart, deploy and idle-spindown wipes the workspace - so a repository registered
+     * yesterday may have no directory today. The database rows survive, which is why chat keeps
+     * working, but editing and re-indexing need the files back.
+     *
+     * Deliberately NOT @Transactional: cloning is minutes of network I/O, and holding a
+     * database connection across it starves the pool. The ownership check happens inside
+     * require(), which has its own short transaction.
+     */
+    public String resolvePath(UUID id) {
+        CodeRepositoryEntity repository = require(id);
+        String localPath = repository.getLocalPath();
+
+        if (Files.isDirectory(Path.of(localPath))) {
+            return localPath;
+        }
+
+        if (repository.getSourceType() != SourceType.GITHUB) {
+            // A LOCAL repository points at the user's own folder. If that is gone, we cannot
+            // recreate it and must say so rather than silently returning a path that does not
+            // exist - which would surface later as an empty index or a confusing parse error.
+            throw new IllegalArgumentException(
+                    "The folder for '" + repository.getName() + "' no longer exists at "
+                            + localPath + ". Re-register it.");
+        }
+
+        log.info("Clone for '{}' is missing (ephemeral disk?) - re-cloning from {}",
+                repository.getName(), repository.getRemoteUrl());
+
+        GitRepositoryService.SyncResult result = gitService.cloneOrUpdate(
+                repository.getRemoteUrl(), repository.getBranch(), Path.of(localPath));
+
+        persistGithub(repository.getUserId(), repository.getRemoteUrl(), repository.getName(),
+                localPath, result);
+
+        return localPath;
     }
 
 }

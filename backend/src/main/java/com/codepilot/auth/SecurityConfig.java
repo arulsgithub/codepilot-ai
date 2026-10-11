@@ -27,13 +27,16 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
-                        // The Angular app itself must load before anyone can sign in.
-                        .requestMatchers("/", "/index.html", "/*.js", "/*.css", "/*.ico",
-                                "/assets/**").permitAll()
+                        // The API is the protected surface. Everything else is the Angular app, which
+                        // MUST load for a signed-out visitor - otherwise they cannot reach the sign-in
+                        // button, and the app is unusable to everyone who is not already logged in.
+                        //
+                        // Listing individual static patterns (/*.js, /assets/**) was fragile: a
+                        // production build emits hashed names and nested paths, and anything missed
+                        // 401s, leaving a blank page with no clue why.
+                        .requestMatchers("/api/**").authenticated()
                         .requestMatchers("/actuator/health").permitAll()
-                        // Everything else is authenticated. Deny by default, so an endpoint added
-                        // later is protected automatically rather than being forgotten.
-                        .anyRequest().authenticated()
+                        .anyRequest().permitAll()
                 )
                 .oauth2Login(oauth -> oauth
                         .userInfoEndpoint(userInfo -> userInfo.userService(oAuth2UserService))
@@ -46,19 +49,17 @@ public class SecurityConfig {
                 )
                 .exceptionHandling(ex -> ex
                         // Without this, an unauthenticated XHR gets a 302 to GitHub, which the browser
-                        // follows and then fails - producing a baffling console error. A plain 401 lets
-                        // the frontend show a "Sign in" button instead.
+                        // follows and then fails - a baffling console error. A plain 401 lets the
+                        // frontend show its sign-in screen instead.
                         //
-                        // The matcher is a lambda rather than AntPathRequestMatcher: that class was
-                        // removed in Spring Security 7, and RequestMatcher is a functional interface,
-                        // so a lambda needs no import and survives future version bumps.
+                        // A lambda rather than AntPathRequestMatcher: that class was removed in Spring
+                        // Security 7, and RequestMatcher is a functional interface.
                         .defaultAuthenticationEntryPointFor(
                                 new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
                                 request -> request.getRequestURI().startsWith("/api/"))
                 )
                 // CSRF disabled: the API takes JSON from our own SPA and has no cookie-authenticated
-                // form posts. A deliberate decision, not an oversight - revisit if form submissions
-                // are ever added.
+                // form posts. A deliberate decision - revisit if form submissions are added.
                 .csrf(csrf -> csrf.disable());
 
         return http.build();

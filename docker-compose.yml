@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: codepilot-postgres-compose
+    environment:
+      POSTGRES_DB: codepilot
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "3506:5432"
+    volumes:
+      - codepilot-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # The app's Flyway migration runs at startup and fails outright if Postgres is
+      # not accepting connections yet, so "started" is not good enough - wait for ready.
+      test: ["CMD-SHELL", "pg_isready -U postgres -d codepilot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/codepilot
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      JINA_API_KEY: ${JINA_API_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY}
+      NEMOTRON_BASE_URL: ${NEMOTRON_BASE_URL:-https://integrate.api.nvidia.com/v1}
+      NEMOTRON_API_KEY: ${NEMOTRON_API_KEY:-}
+      NEMOTRON_MODEL: ${NEMOTRON_MODEL:-}
+      # Production shape: both arbitrary-path endpoints off.
+      CODEPILOT_SECURITY_ALLOW_LOCAL_REPOSITORIES: "false"
+      CODEPILOT_SECURITY_ALLOW_RAW_REPOSITORY_PATHS: "false"
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GITHUB_REDIRECT_URI: http://localhost:8080/login/oauth2/code/github
+      CODEPILOT_FRONTEND_URL: http://localhost:8080/
+
+volumes:
+  codepilot-pgdata:
