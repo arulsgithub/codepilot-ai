@@ -18,12 +18,19 @@ public class CodeRepositoryEntity {
     @Id
     private UUID id;
 
+    /**
+     * Owner. Nullable only because rows created before V6 have no owner - every query filters
+     * on it, so those legacy rows become invisible rather than leaking into someone's account.
+     */
+    @Column(name = "user_id")
+    private UUID userId;
+
     @Column(name = "name", nullable = false, length = 512)
     private String name;
 
     /**
-     * EnumType.STRING, never ORDINAL. ORDINAL stores 0/1, so reordering the enum
-     * silently rewrites the meaning of every existing row. STRING stores "GITHUB".
+     * EnumType.STRING, never ORDINAL. ORDINAL stores 0/1, so reordering the enum silently
+     * rewrites the meaning of every existing row. STRING stores "GITHUB".
      */
     @Enumerated(EnumType.STRING)
     @Column(name = "source_type", nullable = false, length = 16)
@@ -45,9 +52,8 @@ public class CodeRepositoryEntity {
     private OffsetDateTime lastSyncedAt;
 
     /**
-     * Set by the indexing flow, not by git. Comparing this with lastSyncedAt tells us
-     * whether the index is stale relative to the working copy - which is exactly the
-     * check the UI will want ("3 new commits since last index").
+     * Set by the indexing flow, not by git. Comparing this with lastSyncedAt tells us whether
+     * the index is stale relative to the working copy.
      */
     @Column(name = "last_indexed_at")
     private OffsetDateTime lastIndexedAt;
@@ -59,9 +65,11 @@ public class CodeRepositoryEntity {
         // JPA requires a no-arg constructor.
     }
 
-    public CodeRepositoryEntity(UUID id, String name, SourceType sourceType, String remoteUrl,
-                                String branch, String localPath, OffsetDateTime createdAt) {
+    public CodeRepositoryEntity(UUID id, UUID userId, String name, SourceType sourceType,
+                                String remoteUrl, String branch, String localPath,
+                                OffsetDateTime createdAt) {
         this.id = id;
+        this.userId = userId;
         this.name = name;
         this.sourceType = sourceType;
         this.remoteUrl = remoteUrl;
@@ -72,6 +80,14 @@ public class CodeRepositoryEntity {
 
     public UUID getId() {
         return id;
+    }
+
+    public UUID getUserId() {
+        return userId;
+    }
+
+    public void setUserId(UUID userId) {
+        this.userId = userId;
     }
 
     public String getName() {

@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable } from 'rxjs';
 import { IndexingService } from './indexing.service';
@@ -61,6 +61,16 @@ export class RepositoryService {
   readonly addStatus = this._addStatus.asReadonly();
   private readonly _addError = signal<string | null>(null);
   readonly addError = this._addError.asReadonly();
+
+  /**
+   * True once a `local` registration has come back with the "disabled on this
+   * deployment" 400 — some deployments turn that endpoint off entirely. Once
+   * we have seen that response there is no point offering the tab again:
+   * every further attempt would fail the same way, so the dialog hides it for
+   * the rest of this session (reset on reload, since that is a fresh check).
+   */
+  private readonly _localRegistrationDisabled = signal(false);
+  readonly localRegistrationDisabled = this._localRegistrationDisabled.asReadonly();
 
   // ---- Sync (fast) ----
   private readonly _syncingId = signal<string | null>(null);
@@ -258,8 +268,21 @@ export class RepositoryService {
         onRegistered?.(repository);
       },
       error: (err: unknown) => {
+        // A 401 is handled centrally: api.interceptor.ts already cleared the
+        // session before this callback even runs, which makes AppComponent
+        // swap away from whatever is rendering this dialog. Setting addError
+        // below for that case is harmless (nothing is left to show it) and
+        // keeping it uniform here avoids a second, redundant 401 branch.
         this._addStatus.set('error');
-        this._addError.set(describeApiError(err, fallbackMessage));
+        const message = describeApiError(err, fallbackMessage);
+        this._addError.set(message);
+        if (
+          err instanceof HttpErrorResponse &&
+          err.status === 400 &&
+          message.includes('disabled on this deployment')
+        ) {
+          this._localRegistrationDisabled.set(true);
+        }
       },
     });
   }

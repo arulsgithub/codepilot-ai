@@ -1,5 +1,6 @@
 package com.codepilot.repo.service;
 
+import com.codepilot.auth.service.GitHubTokenProvider;
 import com.codepilot.repo.config.GitWorkspaceProperties;
 import org.eclipse.jgit.api.CreateBranchCommand.SetupUpstreamMode;
 import org.eclipse.jgit.api.Git;
@@ -19,6 +20,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
+import java.util.Optional;
 
 /**
  * Owns the on-disk clone of a GitHub repository.
@@ -33,9 +35,12 @@ public class GitRepositoryService {
     private static final Logger log = LoggerFactory.getLogger(GitRepositoryService.class);
 
     private final GitWorkspaceProperties properties;
+    private final GitHubTokenProvider tokenProvider;
 
-    public GitRepositoryService(GitWorkspaceProperties properties) {
+
+    public GitRepositoryService(GitWorkspaceProperties properties, GitHubTokenProvider tokenProvider) {
         this.properties = properties;
+        this.tokenProvider = tokenProvider;
     }
 
     /**
@@ -151,12 +156,9 @@ public class GitRepositoryService {
      * into .git/config on disk, where it survives forever and leaks into any backup
      * or container image. The CredentialsProvider lives only in memory.
      */
-    private java.util.Optional<CredentialsProvider> credentials() {
-        if (!properties.hasToken()) {
-            return java.util.Optional.empty();
-        }
-        return java.util.Optional.of(
-                new UsernamePasswordCredentialsProvider(properties.getToken(), ""));
+    private Optional<CredentialsProvider> credentials() {
+        return tokenProvider.resolve()
+                .map(token -> new UsernamePasswordCredentialsProvider(token, ""));
     }
 
     private String friendlyMessage(String operation, String remoteUrl, Exception e) {

@@ -73,8 +73,8 @@ describe('AddRepositoryDialogComponent', () => {
 
   const submitButton = () => q<HTMLButtonElement>('button[type="submit"]')!;
 
-  async function switchToGithub(): Promise<void> {
-    q<HTMLButtonElement>('#tab-github')!.click();
+  async function switchToLocal(): Promise<void> {
+    q<HTMLButtonElement>('#tab-local')!.click();
     await settle();
   }
 
@@ -84,18 +84,28 @@ describe('AddRepositoryDialogComponent', () => {
     expect(q('.dialog')).toBeNull();
   });
 
-  it('opens on the Local folder tab with the path input and an optional name', async () => {
+  it('opens on the GitHub tab, listed before Local folder', async () => {
     await openDialog();
 
     expect(q('.dialog')).not.toBeNull();
-    expect(q('#tab-local')!.getAttribute('aria-selected')).toBe('true');
-    expect(q('#local-path')).not.toBeNull();
-    expect(q('#local-name')).not.toBeNull();
-    expect(text('#panel-local')).toContain('optional');
+    expect(q('#tab-github')!.getAttribute('aria-selected')).toBe('true');
+    expect(q('#github-url')).not.toBeNull();
+    const tabs = fixture.debugElement.queryAll(By.css('.tab'));
+    expect(tabs[0].nativeElement.id).toBe('tab-github');
+    expect(tabs[1].nativeElement.id).toBe('tab-local');
   });
 
   describe('Local folder tab', () => {
-    beforeEach(openDialog);
+    beforeEach(async () => {
+      await openDialog();
+      await switchToLocal();
+    });
+
+    it('has the path input and an optional name', () => {
+      expect(q('#local-path')).not.toBeNull();
+      expect(q('#local-name')).not.toBeNull();
+      expect(text('#panel-local')).toContain('optional');
+    });
 
     it('cannot submit until an absolute path is entered', async () => {
       expect(submitButton().disabled).toBeTrue();
@@ -138,16 +148,20 @@ describe('AddRepositoryDialogComponent', () => {
   });
 
   describe('GitHub tab', () => {
-    beforeEach(async () => {
-      await openDialog();
-      await switchToGithub();
-    });
+    beforeEach(openDialog);
 
-    it('shows the GITHUB_TOKEN helper text for private repositories', () => {
+    it('shows the helper text explaining private repositories work via the user\'s GitHub account', () => {
       expect(q('#tab-github')!.getAttribute('aria-selected')).toBe('true');
       expect(text('#panel-github')).toContain(
-        'Private repositories require GITHUB_TOKEN to be configured on the server.'
+        'Cloned using your GitHub account, so your private repositories work too.'
       );
+    });
+
+    it('placeholders explain the branch and name defaults', () => {
+      expect(q<HTMLInputElement>('#github-branch')!.placeholder).toContain(
+        "repository's default branch"
+      );
+      expect(q<HTMLInputElement>('#github-name')!.placeholder).toContain("repository's name");
     });
 
     it('has URL, optional branch and optional name fields', () => {
@@ -233,6 +247,7 @@ describe('AddRepositoryDialogComponent', () => {
 
   it('a failure on one tab does not leak onto the other', async () => {
     await openDialog();
+    await switchToLocal();
     await type('#local-path', 'E:\\nope');
     submitButton().click();
     http
@@ -241,13 +256,15 @@ describe('AddRepositoryDialogComponent', () => {
     await settle();
     expect(q('.repo-alert--error')).not.toBeNull();
 
-    await switchToGithub();
+    q<HTMLButtonElement>('#tab-github')!.click();
+    await settle();
 
     expect(q('.repo-alert--error')).toBeNull();
   });
 
-  it('Cancel closes an idle dialog, and reopening starts with a clean form and no old error', async () => {
+  it('Cancel closes an idle dialog, and reopening starts with a clean form, no old error, and back on GitHub', async () => {
     await openDialog();
+    await switchToLocal();
     await type('#local-path', 'E:\\draft');
 
     q<HTMLButtonElement>('.actions .repo-btn--secondary')!.click();
@@ -258,6 +275,59 @@ describe('AddRepositoryDialogComponent', () => {
     fixture.componentRef.setInput('open', true);
     await settle();
 
+    expect(q('#tab-github')!.getAttribute('aria-selected')).toBe('true');
+    await switchToLocal();
     expect(q<HTMLInputElement>('#local-path')!.value).toBe('');
   });
+
+  describe('local registration disabled on this deployment', () => {
+    it('hides the Local folder tab for the rest of the session once the backend says so', async () => {
+      await openDialog();
+      await switchToLocal();
+      await type('#local-path', 'E:\\code\\thing');
+      submitButton().click();
+      http
+        .expectOne('/api/v1/repositories/local')
+        .flush(
+          { message: 'Registering local filesystem paths is disabled on this deployment.' },
+          { status: 400, statusText: 'Bad Request' }
+        );
+      await settle();
+
+      // The error is still shown as-is on the tab the user was on...
+      expect(text('.repo-alert--error')).toContain(
+        'Registering local filesystem paths is disabled on this deployment.'
+      );
+      // ...but the tab itself is gone from the tab bar from now on.
+      expect(q('#tab-local')).toBeNull();
+
+      q<HTMLButtonElement>('.dialog-close')!.click();
+      fixture.componentRef.setInput('open', false);
+      await settle();
+      fixture.componentRef.setInput('open', true);
+      await settle();
+
+      expect(q('#tab-local')).toBeNull();
+      expect(q('#tab-github')!.getAttribute('aria-selected')).toBe('true');
+    });
+
+    it('does not hide the tab for an unrelated 400', async () => {
+      await openDialog();
+      await switchToLocal();
+      await type('#local-path', 'E:\\nope');
+      submitButton().click();
+      http
+        .expectOne('/api/v1/repositories/local')
+        .flush({ message: 'Not a directory: E:\\nope' }, { status: 400, statusText: 'Bad Request' });
+      await settle();
+
+      expect(q('#tab-local')).not.toBeNull();
+    });
+  });
+
+  // Session expiry (401) is handled above this component: api.interceptor.ts
+  // clears the session for every request before RepositoryService's own
+  // error callback runs, and AppComponent reacts to that by swapping the
+  // whole app away from this dialog to the sign-in screen. See
+  // api.interceptor.spec.ts and app.component.spec.ts.
 });

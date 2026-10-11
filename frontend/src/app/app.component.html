@@ -1,1 +1,10 @@
-<router-outlet />
+@if (currentUser() === 'loading') {
+  <div class="splash" role="status" aria-live="polite">
+    <div class="splash-mark" aria-hidden="true">&lt;/&gt;</div>
+    <span class="repo-spinner splash-spinner" aria-hidden="true"></span>
+  </div>
+} @else if (currentUser() === null) {
+  <app-sign-in-screen />
+} @else {
+  <router-outlet />
+}

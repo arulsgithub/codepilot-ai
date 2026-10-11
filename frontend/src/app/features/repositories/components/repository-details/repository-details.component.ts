@@ -53,6 +53,14 @@ export class RepositoryDetailsComponent {
     return !!repo && this.repositories.indexingId() === repo.id;
   });
 
+  /**
+   * True for a repository that has never been indexed — most notably right
+   * after it is registered, since registering never indexes it (that is a
+   * separate, much slower step). Drives a dedicated "index this" prompt
+   * rather than leaving the user to notice the small "not indexed" badge.
+   */
+  readonly needsFirstIndex = computed(() => this.repository()?.lastIndexedAt === null);
+
   /** Another repository is being indexed — starting a second run would just compete for the embedder. */
   readonly otherIndexRunning = computed(
     () => this.repositories.isIndexing() && !this.isIndexing()
@@ -117,6 +125,18 @@ export class RepositoryDetailsComponent {
   confirmReindex(): void {
     const repo = this.repository();
     this.confirmingFor.set(null);
+    if (repo) {
+      this.repositories.index(repo.id);
+    }
+  }
+
+  /**
+   * The first-index prompt's own call to action. It skips the confirm step
+   * that `askReindex` goes through: the prompt already states the time cost
+   * up front, so a second confirmation would just be a redundant click.
+   */
+  indexNow(): void {
+    const repo = this.repository();
     if (repo) {
       this.repositories.index(repo.id);
     }

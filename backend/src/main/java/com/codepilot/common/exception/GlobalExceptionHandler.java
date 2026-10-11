@@ -139,8 +139,17 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleProviderError(
             WebClientResponseException exception, HttpServletRequest request) {
 
-        log.warn("AI provider returned {} for {} {}", exception.getStatusCode(),
-                request.getMethod(), request.getRequestURI());
+        log.warn("AI provider returned {} for {} {} | body: {}", exception.getStatusCode(),
+                request.getMethod(), request.getRequestURI(),
+                exception.getResponseBodyAsString());
+
+        // 429 passes through as 429, not 502. "Too many requests, wait" is a different
+        // instruction to a client than "the upstream is broken" - a UI can back off and
+        // retry the first, but should not retry the second.
+        if (exception.getStatusCode().value() == 429) {
+            return error(HttpStatus.TOO_MANY_REQUESTS, ErrorCode.AI_PROVIDER_ERROR,
+                    "The AI provider is rate limiting. Wait a moment and try again.", request);
+        }
 
         return error(HttpStatus.BAD_GATEWAY, ErrorCode.AI_PROVIDER_ERROR,
                 "AI provider returned " + exception.getStatusCode() + ": "

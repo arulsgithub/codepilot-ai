@@ -1,5 +1,6 @@
 package com.codepilot.repo.service;
 
+import com.codepilot.auth.service.GitHubTokenProvider;
 import com.codepilot.repo.config.GitWorkspaceProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,9 +27,16 @@ public class GitHubApiClient {
     private final GitWorkspaceProperties properties;
     private final WebClient webClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final GitHubTokenProvider tokenProvider;
 
-    public GitHubApiClient(GitWorkspaceProperties properties, WebClient.Builder builder) {
+    public GitHubApiClient(GitWorkspaceProperties properties,
+                           GitHubTokenProvider tokenProvider,
+                           WebClient.Builder builder) {
         this.properties = properties;
+        this.tokenProvider = tokenProvider;
+        // No default Authorization header: the token is per-user now, so it must be set per
+        // request. A default header here would be a cross-user leak waiting to happen - one
+        // user's token baked into a singleton bean and used for everyone else's pull requests.
         this.webClient = builder.baseUrl(properties.getApiBaseUrl()).build();
     }
 
@@ -40,21 +48,13 @@ public class GitHubApiClient {
     public String createPullRequest(String remoteUrl, String headBranch, String baseBranch,
                                     String title, String body) {
 
-        if (!properties.hasToken()) {
-            throw new GitRepositoryService.GitOperationException(
-                    "Opening a pull request requires a GITHUB_TOKEN with 'repo' scope. "
-                            + "None is configured.", null);
-        }
-
+        String token = tokenProvider.require("Opening a pull request");
         OwnerRepo target = parse(remoteUrl);
 
         try {
-            // bodyToMono(String) then parse manually - mixing Spring MVC and WebFlux in one
-            // app makes the Jackson codecs fight, which is what produced the CodecException
-            // on JsonNode earlier in this project.
             String response = webClient.post()
                     .uri("/repos/{owner}/{repo}/pulls", target.owner(), target.repo())
-                    .header("Authorization", "Bearer " + properties.getToken())
+                    .header("Authorization", "Bearer " + token)
                     .header("Accept", "application/vnd.github+json")
                     .header("X-GitHub-Api-Version", "2022-11-28")
                     .bodyValue(Map.of(
@@ -73,8 +73,7 @@ public class GitHubApiClient {
             return url;
 
         } catch (WebClientResponseException e) {
-            throw new GitRepositoryService.GitOperationException(
-                    friendly(e, target), e);
+            throw new GitRepositoryService.GitOperationException(friendly(e, target), e);
         } catch (Exception e) {
             throw new GitRepositoryService.GitOperationException(
                     "Could not create pull request: " + e.getMessage(), e);
@@ -84,11 +83,12 @@ public class GitHubApiClient {
     private String friendly(WebClientResponseException e, OwnerRepo target) {
         int status = e.getStatusCode().value();
         return switch (status) {
-            case 401 -> "GitHub rejected the token (401). Check GITHUB_TOKEN is valid and not expired.";
-            case 403 -> "GitHub refused the request (403). The token likely lacks write access to "
-                    + target.owner() + "/" + target.repo() + ", or you have hit a rate limit.";
+            case 401 -> "GitHub rejected your access token (401). Sign out and sign in again.";
+            case 403 -> "GitHub refused the request (403). Your account may not have write "
+                    + "access to " + target.owner() + "/" + target.repo() + ".";
             case 404 -> "GitHub returned 404 for " + target.owner() + "/" + target.repo()
-                    + ". For a private repository this usually means the token cannot see it.";
+                    + ". For a private repository this usually means your account cannot "
+                    + "see it, or the 'repo' scope was not granted at sign-in.";
             case 422 -> "GitHub rejected the pull request (422): " + e.getResponseBodyAsString()
                     + ". Common causes: the branch was never pushed, or a PR already exists for it.";
             default -> "GitHub returned " + status + ": " + e.getResponseBodyAsString();

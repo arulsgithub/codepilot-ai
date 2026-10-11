@@ -22,6 +22,14 @@ public class Conversation {
     @Column(nullable = false, updatable = false)
     private UUID id;
 
+    /**
+     * Owner. Nullable only because rows created before V6 have no owner - every query
+     * filters on it, so those legacy rows become invisible rather than leaking into
+     * someone's account.
+     */
+    @Column(name = "user_id")
+    private UUID userId;
+
     @Column(nullable = false, length = 255)
     private String title;
 

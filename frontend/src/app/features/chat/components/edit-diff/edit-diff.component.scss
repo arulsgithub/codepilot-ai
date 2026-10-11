@@ -13,8 +13,9 @@
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   line-height: 1.5;
-  // The code surface (--color-code-bg) is dark in BOTH themes, so the diff
-  // uses the dedicated on-code foreground rather than --color-text-primary.
+  // Dedicated on-code foreground token, kept distinct from
+  // --color-text-primary in case a future theme gives the code surface its
+  // own color again rather than tracking the page surface.
   color: var(--color-code-text);
 }
 

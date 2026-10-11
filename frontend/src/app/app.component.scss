@@ -2,3 +2,35 @@
   display: block;
   height: 100%;
 }
+
+.splash {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-5);
+}
+
+.splash-mark {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--font-size-xl);
+  color: var(--color-accent-contrast);
+  background: var(--gradient-accent);
+  box-shadow: var(--glow-accent);
+  border-radius: var(--radius-md);
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// .repo-spinner (global, src/styles.scss) is sized for inline use next to
+// text; the splash is the one place a spinner stands alone, so it's scaled up.
+.splash-spinner {
+  width: 20px;
+  height: 20px;
+  border-width: 3px;
+}

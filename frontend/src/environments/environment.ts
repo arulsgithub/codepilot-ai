@@ -1,11 +1,8 @@
-/**
- * Development environment configuration.
- *
- * IMPORTANT: `apiBaseUrl` is the single source of truth for the backend
- * origin. Never hardcode `http://localhost:8080` anywhere else in the app —
- * always import `environment.apiBaseUrl` instead.
- */
 export const environment = {
   production: false,
-  apiBaseUrl: 'http://localhost:8080',
+  // Empty: every request becomes relative, so the dev proxy forwards it and the
+  // browser only ever sees localhost:4200 - one origin, so no CORS and the session
+  // cookie is sent normally. An absolute http://localhost:8080 here would bypass
+  // the proxy entirely and bring both problems back.
+  apiBaseUrl: ''
 };

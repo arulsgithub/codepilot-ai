@@ -4,11 +4,13 @@
   display: block;
 }
 
+// A top divider instead of a full border box: the selector trigger right
+// above it already reads as a bordered control, so stacking another
+// border-and-radius box under it just doubles the "card" chrome. A hairline
+// rule is enough to say "this belongs to the selected repository above".
 .details {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-2);
 }
 
 .details-toggle {
@@ -120,6 +122,17 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
+}
+
+.details-index-prompt-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1;
+
+  button {
+    align-self: flex-start;
+  }
 }
 
 .details-note {

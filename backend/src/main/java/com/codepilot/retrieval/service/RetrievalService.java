@@ -3,6 +3,7 @@ package com.codepilot.retrieval.service;
 import com.codepilot.embedding.EmbeddingClient;
 import com.codepilot.indexing.entity.CodeChunkEntity;
 import com.codepilot.indexing.repository.CodeChunkRepository;
+import com.codepilot.retrieval.RetrievalProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -14,45 +15,72 @@ public class RetrievalService {
 
     private static final Logger log = LoggerFactory.getLogger(RetrievalService.class);
 
-    private static final int DEFAULT_TOP_K = 5; // how many chunks we hand to the LLM per question
-
     private final EmbeddingClient embeddingClient;
     private final CodeChunkRepository codeChunkRepository;
+    private final RetrievalProperties properties;
 
-    public RetrievalService(EmbeddingClient embeddingClient, CodeChunkRepository codeChunkRepository) {
+    public RetrievalService(EmbeddingClient embeddingClient,
+                            CodeChunkRepository codeChunkRepository,
+                            RetrievalProperties properties) {
         this.embeddingClient = embeddingClient;
         this.codeChunkRepository = codeChunkRepository;
+        this.properties = properties;
     }
 
     /**
-     * @param question       the user's chat message, in plain English
-     * @param repositoryRoot which indexed repo to search within (matches what /api/v1/indexing used)
-     * @return the topK code chunks whose meaning is closest to the question
+     * Chat retrieval: a candidate pool from pgvector, packed into the chat character budget.
+     *
+     * @param question       the user's chat message in plain English
+     * @param repositoryRoot which indexed repo to search (canonical form - see RepositoryPathResolver)
      */
     public List<CodeChunkEntity> retrieveRelevantChunks(String question, String repositoryRoot) {
-        return retrieveRelevantChunks(question, repositoryRoot, DEFAULT_TOP_K);
+        return retrieve(question, repositoryRoot, properties.getMaxContextChars());
     }
 
-    /** Editing needs broader context than Q&A, so callers can request more chunks. */
-    public List<CodeChunkEntity> retrieveRelevantChunks(String question, String repositoryRoot, int topK) {
+    /**
+     * Editing needs wider context than Q&A - a change usually touches several places - so it
+     * gets its own, larger budget.
+     */
+    public List<CodeChunkEntity> retrieveForEditing(String instruction, String repositoryRoot) {
+        return retrieve(instruction, repositoryRoot, properties.getMaxEditContextChars());
+    }
 
+    /**
+     * Kept for callers that still pass an explicit chunk count. The budget still applies -
+     * topK becomes the chunk ceiling, not a licence to exceed the character limit.
+     */
+    public List<CodeChunkEntity> retrieveRelevantChunks(String question, String repositoryRoot, int topK) {
+        List<CodeChunkEntity> candidates = search(question, repositoryRoot,
+                Math.max(topK, properties.getCandidatePoolSize()));
+        return ContextBudget.pack(candidates, properties.getMaxEditContextChars(), topK);
+    }
+
+    private List<CodeChunkEntity> retrieve(String question, String repositoryRoot, int maxChars) {
+        // Ask for MORE candidates than we will use. The budget then picks the best combination
+        // that fits, rather than being stuck with whatever five rows came back - if the top
+        // chunk is huge, smaller relevant ones behind it can still make it into the prompt.
+        List<CodeChunkEntity> candidates = search(question, repositoryRoot,
+                properties.getCandidatePoolSize());
+
+        return ContextBudget.pack(candidates, maxChars, properties.getMaxChunks());
+    }
+
+    private List<CodeChunkEntity> search(String question, String repositoryRoot, int limit) {
         List<Float> questionVector = embeddingClient.embed(question, EmbeddingClient.InputType.QUERY);
         List<CodeChunkEntity> chunks = codeChunkRepository.findSimilarChunks(
-                repositoryRoot, toPgvectorLiteral(questionVector), topK);
+                repositoryRoot, toPgvectorLiteral(questionVector), limit);
 
         if (chunks.isEmpty()) {
-            // Zero results is almost never "this repo has nothing relevant" - similarity search
-            // returns the topK nearest regardless of how distant they are. Empty means no rows
-            // matched repository_root AT ALL: wrong path spelling, or never indexed.
-            log.warn("Retrieval returned 0 chunks for repositoryRoot='{}'. "
-                            + "The repository is probably not indexed, or was indexed under a different "
-                            + "path spelling - check SELECT DISTINCT repository_root FROM code_chunks.",
-                    repositoryRoot);
+            // Zero results is almost never "nothing relevant here" - similarity search returns
+            // the nearest rows regardless of distance. Empty means no rows matched
+            // repository_root AT ALL: wrong path spelling, or never indexed.
+            log.warn("Retrieval returned 0 candidates for repositoryRoot='{}'. The repository is "
+                    + "probably not indexed, or was indexed under a different path spelling - "
+                    + "check SELECT DISTINCT repository_root FROM code_chunks.", repositoryRoot);
         } else {
-            log.info("Retrieval: {} chunk(s) for '{}' from {}",
+            log.info("Retrieval: {} candidate(s) for '{}' from {}",
                     chunks.size(), truncate(question), repositoryRoot);
         }
-
         return chunks;
     }
 

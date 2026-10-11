@@ -4,11 +4,12 @@ import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
 import { ChatStateService } from './chat-state.service';
-import { ChatService } from '../../../core/services/chat.service';
+import { ChatService, HttpStreamError, UnauthenticatedError } from '../../../core/services/chat.service';
 import { ConversationService } from '../../../core/services/conversation.service';
 import { MessageService } from '../../../core/services/message.service';
 import { IndexingService } from '../../../core/services/indexing.service';
 import { RepositoryService } from '../../../core/services/repository.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { Repository } from '../../../core/models/repository.model';
 import { ChatRequest, StreamEvent } from '../../../core/models/chat.model';
 import { Conversation } from '../../../core/models/conversation.model';
@@ -378,6 +379,30 @@ describe('ChatStateService (Phase 2 wiring)', () => {
       registryIndex$.next({ repositoryRoot: REGISTERED.localPath, chunksIndexed: 9 });
       http.expectOne('/api/v1/repositories/r-registered').flush(REGISTERED);
       expect(service.indexingStatus()).toBe('idle');
+    });
+  });
+
+  describe('session expiry during streaming', () => {
+    it('on UnauthenticatedError, clears the session instead of setting a visible error', () => {
+      const auth = TestBed.inject(AuthService);
+      service.sendMessageToConversation(CONVERSATION.id, 'hello');
+
+      stream$.error(new UnauthenticatedError('Not signed in — the chat session has expired.'));
+
+      expect(auth.currentUser()).toBeNull();
+      expect(service.error()).toBeNull();
+      expect(service.chatState()).not.toBe('error');
+    });
+
+    it('still reports an ordinary stream failure as an error (not a sign-in redirect)', () => {
+      const auth = TestBed.inject(AuthService);
+      service.sendMessageToConversation(CONVERSATION.id, 'hello');
+
+      stream$.error(new HttpStreamError('Chat stream request failed with status 500', 500));
+
+      expect(auth.currentUser()).toBe('loading');
+      expect(service.error()).toBeTruthy();
+      expect(service.chatState()).toBe('error');
     });
   });
 });

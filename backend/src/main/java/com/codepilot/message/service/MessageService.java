@@ -8,6 +8,7 @@ import com.codepilot.message.entity.MessageRole;
 import com.codepilot.message.repository.MessageRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.codepilot.auth.service.CurrentUserService;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -21,13 +22,15 @@ public class MessageService {
 
     private final MessageRepository messageRepository;
     private final ConversationRepository conversationRepository;
+    private final CurrentUserService currentUserService;
 
     public MessageService(
             MessageRepository messageRepository,
-            ConversationRepository conversationRepository) {
+            ConversationRepository conversationRepository, CurrentUserService currentUserService) {
 
         this.messageRepository = messageRepository;
         this.conversationRepository = conversationRepository;
+        this.currentUserService = currentUserService;
     }
 
     @Transactional
@@ -46,12 +49,10 @@ public class MessageService {
             String content,
             UUID clientRequestId) {
 
-        Conversation conversation =
-                conversationRepository.findByIdForUpdate(conversationId)
-                        .orElseThrow(() ->
-                                new IllegalArgumentException(
-                                        "Conversation not found: " + conversationId
-                                ));
+        Conversation conversation = conversationRepository
+                .findByIdForUpdate(conversationId, currentUserService.requireUserId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Conversation not found: " + conversationId));
 
         conversation.setUpdatedAt(OffsetDateTime.now());
 

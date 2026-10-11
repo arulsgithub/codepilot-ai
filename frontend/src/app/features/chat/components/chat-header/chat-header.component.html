@@ -15,7 +15,7 @@
   <div class="header-right">
     <button
       type="button"
-      class="repo-attach"
+      class="icon-btn"
       title="Command palette (Ctrl/⌘+K)"
       (click)="commandPaletteRequested.emit()"
     >
@@ -64,11 +64,9 @@
       </button>
     }
 
-    <span class="badge">Nemotron</span>
-    <span class="badge badge--muted">Phase 2</span>
     <button
       type="button"
-      class="theme-toggle"
+      class="icon-btn"
       [attr.aria-label]="theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'"
       (click)="themeToggled.emit()"
     >
@@ -78,5 +76,8 @@
         <span aria-hidden="true">☾</span>
       }
     </button>
+
+    <span class="header-divider" aria-hidden="true"></span>
+    <app-user-menu />
   </div>
 </header>

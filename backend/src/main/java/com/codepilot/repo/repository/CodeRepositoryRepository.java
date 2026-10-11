@@ -9,10 +9,10 @@ import java.util.UUID;
 
 public interface CodeRepositoryRepository extends JpaRepository<CodeRepositoryEntity, UUID> {
 
-    /** Used to make registration idempotent: registering the same folder twice returns the existing row. */
-    Optional<CodeRepositoryEntity> findByLocalPath(String localPath);
+    /** Scoped by user - the same repository can be registered by two people independently. */
+    Optional<CodeRepositoryEntity> findByLocalPathAndUserId(String localPath, UUID userId);
 
-    Optional<CodeRepositoryEntity> findByRemoteUrlAndBranch(String remoteUrl, String branch);
+    Optional<CodeRepositoryEntity> findByIdAndUserId(UUID id, UUID userId);
 
-    List<CodeRepositoryEntity> findAllByOrderByCreatedAtDesc();
+    List<CodeRepositoryEntity> findAllByUserIdOrderByCreatedAtDesc(UUID userId);
 }

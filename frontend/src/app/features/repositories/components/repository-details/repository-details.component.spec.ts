@@ -170,6 +170,54 @@ describe('RepositoryDetailsComponent', () => {
     expect(rowValue('Last indexed')!.textContent).toContain('not indexed');
   });
 
+  describe('first-index prompt', () => {
+    it('is shown for a repository that has never been indexed, explaining the wait', () => {
+      selectRepo(localRepo({ lastIndexedAt: null, indexStale: true }));
+
+      expect(text('.details-index-prompt')).toContain("hasn't been indexed yet");
+      expect(text('.details-index-prompt')).toContain('a few minutes');
+      expect(text('.details-index-prompt')).toContain('rate-limited API');
+      expect(button('Index now')).toBeDefined();
+    });
+
+    it('is not shown once the repository has an index', () => {
+      selectRepo(githubRepo());
+
+      expect(q('.details-index-prompt')).toBeNull();
+    });
+
+    it('"Index now" starts indexing immediately, without the Re-index confirm step', () => {
+      selectRepo(localRepo({ lastIndexedAt: null, indexStale: true }));
+
+      button('Index now')!.click();
+      fixture.detectChanges();
+
+      expect(q('.details-confirm')).toBeNull();
+      const req = http.expectOne('/api/v1/indexing');
+      expect(req.request.body).toEqual({ repositoryId: 'r-local' });
+
+      req.flush({ repositoryRoot: 'x', chunksIndexed: 7 });
+      http
+        .expectOne('/api/v1/repositories/r-local')
+        .flush(localRepo({ lastIndexedAt: hoursAgo(0), indexStale: false }));
+      fixture.detectChanges();
+
+      expect(q('.details-index-prompt')).toBeNull();
+    });
+
+    it('hides itself while indexing is in progress', () => {
+      selectRepo(localRepo({ lastIndexedAt: null, indexStale: true }));
+
+      button('Index now')!.click();
+      fixture.detectChanges();
+
+      expect(q('.details-index-prompt')).toBeNull();
+
+      http.expectOne('/api/v1/indexing').flush({ repositoryRoot: 'x', chunksIndexed: 1 });
+      http.expectOne('/api/v1/repositories/r-local').flush(localRepo({ indexStale: false }));
+    });
+  });
+
   describe('Sync', () => {
     beforeEach(() => selectRepo(githubRepo()));
 

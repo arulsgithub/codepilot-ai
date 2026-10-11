@@ -2,9 +2,10 @@ import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ConversationService } from '../../../core/services/conversation.service';
 import { MessageService } from '../../../core/services/message.service';
-import { ChatService, HttpStreamError } from '../../../core/services/chat.service';
+import { ChatService, HttpStreamError, UnauthenticatedError } from '../../../core/services/chat.service';
 import { IndexingService } from '../../../core/services/indexing.service';
 import { RepositoryService } from '../../../core/services/repository.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { RepositorySourceType } from '../../../core/models/repository.model';
 import { Conversation } from '../../../core/models/conversation.model';
 import { ChatMessageViewModel } from '../../../core/models/message.model';
@@ -33,6 +34,7 @@ export class ChatStateService {
   private readonly chatService = inject(ChatService);
   private readonly indexingService = inject(IndexingService);
   private readonly repositories = inject(RepositoryService);
+  private readonly authService = inject(AuthService);
 
   // ---- Conversations ----
   private readonly _conversations = signal<Conversation[]>([]);
@@ -452,6 +454,17 @@ export class ChatStateService {
           }
         },
         error: (err) => {
+          if (err instanceof UnauthenticatedError) {
+            // The session expired mid-stream. This bypasses api.interceptor
+            // entirely (ChatService talks to fetch() directly - see its own
+            // doc comment), so it has to clear the session itself. Routing
+            // to the sign-in screen is the whole response here: no error
+            // banner, since AppComponent is about to unmount this page.
+            this.markAssistantMessageErrored(assistantClientId);
+            this._chatState.set('idle');
+            this.authService.clearSession();
+            return;
+          }
           // Streaming failed partway through — keep whatever partial
           // content was already appended, just flag it as interrupted.
           this.markAssistantMessageErrored(assistantClientId);

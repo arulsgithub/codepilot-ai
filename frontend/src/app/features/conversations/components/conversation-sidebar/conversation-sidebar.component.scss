@@ -333,7 +333,7 @@
 .btn-danger {
   background: var(--color-danger);
   border: 1px solid var(--color-danger);
-  color: #fff;
+  color: var(--color-danger-contrast);
 
   &:hover {
     opacity: 0.9;

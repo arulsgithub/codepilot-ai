@@ -1,16 +1,14 @@
 .header {
   position: relative;
   z-index: 2;
-  height: 52px;
+  height: 56px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--space-5);
+  padding: 0 var(--space-6);
   border-bottom: 1px solid var(--color-border);
   background: var(--surface-glass);
-  backdrop-filter: blur(var(--surface-glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--surface-glass-blur)) saturate(150%);
 }
 
 .header-left {
@@ -65,38 +63,37 @@
 .header-right {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
-.badge {
-  font-size: var(--font-size-xs);
-  font-family: var(--font-mono);
-  color: var(--color-text-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: var(--space-1) var(--space-3);
-
-  &--muted {
-    color: var(--color-text-muted);
-  }
-}
-
-.theme-toggle {
+// Icon-only actions (command palette, theme toggle): no border, just a
+// hover fill — keeps the header from reading as a row of identical pills.
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
   background: none;
-  border: 1px solid var(--color-border);
+  border: none;
   border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
-  padding: var(--space-2) var(--space-3);
   font-size: var(--font-size-sm);
   cursor: pointer;
-  margin-left: var(--space-2);
-  transition: background var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast);
 
   &:hover {
     background: var(--color-surface-hover);
-    border-color: var(--color-accent);
-    box-shadow: var(--glow-accent-soft);
+    color: var(--color-text-primary);
   }
+}
+
+// Separates "actions" (left of it) from "account" (the user menu) without
+// another bordered box.
+.header-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border);
 }
 
 .repo-icon {

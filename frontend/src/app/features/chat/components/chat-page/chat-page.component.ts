@@ -282,9 +282,9 @@ export class ChatPageComponent implements OnInit {
   private readStoredTheme(): 'dark' | 'light' {
     try {
       const stored = localStorage.getItem(THEME_STORAGE_KEY);
-      return stored === 'light' ? 'light' : 'dark';
+      return stored === 'dark' ? 'dark' : 'light';
     } catch {
-      return 'dark';
+      return 'light';
     }
   }
 

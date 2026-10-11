@@ -27,8 +27,17 @@ export type AddRepositoryTab = 'local' | 'github';
  * screen to report its result).
  *
  * On failure the dialog STAYS OPEN and shows the backend's own message inline
- * (e.g. the "requires authentication. Set GITHUB_TOKEN ..." text) — never a
- * generic "something went wrong".
+ * (e.g. a bad/missing GitHub auth, or a repo that doesn't exist) — never a
+ * generic "something went wrong". The one exception is a 401: that means the
+ * session itself expired, and api.interceptor.ts has already cleared it
+ * before this dialog's own error handling even runs, which makes
+ * AppComponent swap the whole app to the sign-in screen out from under it.
+ *
+ * GitHub is the default and first tab: cloning a repo by URL is the common
+ * case (it works for anyone's own GitHub account, private repos included),
+ * while "Local folder" only works when the backend happens to be running on
+ * the same machine as the repo, and some deployments disable it outright —
+ * see `showLocalTab` below.
  */
 @Component({
   selector: 'app-add-repository-dialog',
@@ -46,6 +55,9 @@ export class AddRepositoryDialogComponent {
     this._open = value;
     if (value && !wasOpen) {
       this.resetForm();
+      // Always reopen on GitHub: it's the default, and it sidesteps the edge
+      // case of reopening onto a Local tab that just got hidden (see below).
+      this.tab.set('github');
       this.repositories.clearAddError();
       setTimeout(() => this.firstField?.nativeElement.focus());
     }
@@ -59,11 +71,17 @@ export class AddRepositoryDialogComponent {
 
   @ViewChild('firstField') firstField?: ElementRef<HTMLInputElement>;
 
-  readonly tab = signal<AddRepositoryTab>('local');
+  readonly tab = signal<AddRepositoryTab>('github');
   readonly busy = computed(() => this.repositories.addStatus() === 'in-progress');
   readonly errorMessage = computed(() =>
     this.repositories.addStatus() === 'error' ? this.repositories.addError() : null
   );
+  /**
+   * Once the backend has told us local registration is disabled on this
+   * deployment, there is no point offering the tab again — every further
+   * attempt would fail identically. Stays hidden until the page reloads.
+   */
+  readonly showLocalTab = computed(() => !this.repositories.localRegistrationDisabled());
 
   // Form fields (plain properties bound with ngModel).
   localPath = '';

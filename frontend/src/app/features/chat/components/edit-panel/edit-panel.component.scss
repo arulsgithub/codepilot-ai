@@ -371,7 +371,7 @@
 
 .btn--danger {
   background: var(--color-danger);
-  color: #fff;
+  color: var(--color-danger-contrast);
 }
 
 // ---- GitHub result: the pull request is the outcome, so it leads ----

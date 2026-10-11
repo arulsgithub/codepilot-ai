@@ -19,19 +19,6 @@
         <button
           type="button"
           role="tab"
-          id="tab-local"
-          class="tab"
-          [class.tab--active]="tab() === 'local'"
-          [attr.aria-selected]="tab() === 'local'"
-          aria-controls="panel-local"
-          [disabled]="busy()"
-          (click)="selectTab('local')"
-        >
-          Local folder
-        </button>
-        <button
-          type="button"
-          role="tab"
           id="tab-github"
           class="tab"
           [class.tab--active]="tab() === 'github'"
@@ -42,45 +29,29 @@
         >
           GitHub
         </button>
+        @if (showLocalTab()) {
+          <button
+            type="button"
+            role="tab"
+            id="tab-local"
+            class="tab"
+            [class.tab--active]="tab() === 'local'"
+            [attr.aria-selected]="tab() === 'local'"
+            aria-controls="panel-local"
+            [disabled]="busy()"
+            (click)="selectTab('local')"
+          >
+            Local folder
+          </button>
+        }
       </div>
 
       <form class="form" (ngSubmit)="submit()" novalidate>
         <fieldset class="fieldset" [disabled]="busy()">
-          @if (tab() === 'local') {
-            <div id="panel-local" role="tabpanel" aria-labelledby="tab-local" class="panel">
-              <p class="hint">
-                A folder that already exists on the machine running the CodePilot backend.
-              </p>
-
-              <label class="label" for="local-path">Absolute path</label>
-              <input
-                #firstField
-                id="local-path"
-                name="localPath"
-                type="text"
-                class="input input--mono"
-                placeholder="E:\path\to\your\repo"
-                spellcheck="false"
-                autocomplete="off"
-                [(ngModel)]="localPath"
-              />
-
-              <label class="label" for="local-name">Name <span class="optional">(optional)</span></label>
-              <input
-                id="local-name"
-                name="localName"
-                type="text"
-                class="input"
-                placeholder="Defaults to the folder name"
-                autocomplete="off"
-                [(ngModel)]="localName"
-              />
-            </div>
-          } @else {
+          @if (tab() === 'github') {
             <div id="panel-github" role="tabpanel" aria-labelledby="tab-github" class="panel">
               <p class="hint">
-                The server clones this repository into its managed workspace.
-                Private repositories require <code>GITHUB_TOKEN</code> to be configured on the server.
+                Cloned using your GitHub account, so your private repositories work too.
               </p>
 
               <label class="label" for="github-url">Repository URL</label>
@@ -108,7 +79,7 @@
                 name="githubBranch"
                 type="text"
                 class="input input--mono"
-                placeholder="Defaults to the repository's default branch"
+                placeholder="Leave blank for the repository's default branch"
                 spellcheck="false"
                 autocomplete="off"
                 [(ngModel)]="githubBranch"
@@ -120,9 +91,39 @@
                 name="githubName"
                 type="text"
                 class="input"
-                placeholder="Defaults to the repository name"
+                placeholder="Leave blank to use the repository's name"
                 autocomplete="off"
                 [(ngModel)]="githubName"
+              />
+            </div>
+          } @else {
+            <div id="panel-local" role="tabpanel" aria-labelledby="tab-local" class="panel">
+              <p class="hint">
+                A folder that already exists on the machine running the CodePilot backend.
+              </p>
+
+              <label class="label" for="local-path">Absolute path</label>
+              <input
+                #firstField
+                id="local-path"
+                name="localPath"
+                type="text"
+                class="input input--mono"
+                placeholder="E:\path\to\your\repo"
+                spellcheck="false"
+                autocomplete="off"
+                [(ngModel)]="localPath"
+              />
+
+              <label class="label" for="local-name">Name <span class="optional">(optional)</span></label>
+              <input
+                id="local-name"
+                name="localName"
+                type="text"
+                class="input"
+                placeholder="Defaults to the folder name"
+                autocomplete="off"
+                [(ngModel)]="localName"
               />
             </div>
           }

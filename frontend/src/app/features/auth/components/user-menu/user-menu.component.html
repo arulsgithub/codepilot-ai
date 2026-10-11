@@ -1,0 +1,28 @@
+@if (user(); as person) {
+  <div class="user-menu">
+    <button
+      type="button"
+      class="user-trigger"
+      aria-haspopup="menu"
+      [attr.aria-expanded]="open()"
+      [attr.title]="person.login"
+      (click)="toggle()"
+    >
+      @if (person.avatarUrl) {
+        <img class="user-avatar" [src]="person.avatarUrl" [alt]="person.login" />
+      } @else {
+        <span class="user-avatar user-avatar--fallback" aria-hidden="true">{{ initial(person) }}</span>
+      }
+      <span class="user-login">{{ person.login }}</span>
+      <span class="user-caret" aria-hidden="true">▾</span>
+    </button>
+
+    @if (open()) {
+      <div class="user-dropdown" role="menu">
+        <button type="button" class="user-dropdown-item" role="menuitem" (click)="signOut()">
+          Sign out
+        </button>
+      </div>
+    }
+  </div>
+}

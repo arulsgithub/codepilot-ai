@@ -1,5 +1,6 @@
 package com.codepilot.conversation.service;
 
+import com.codepilot.auth.service.CurrentUserService;
 import com.codepilot.conversation.dto.ConversationResponse;
 import com.codepilot.conversation.entity.Conversation;
 import com.codepilot.conversation.repository.ConversationRepository;
@@ -14,9 +15,12 @@ import java.util.UUID;
 public class ConversationService {
 
     private final ConversationRepository conversationRepository;
+    private final CurrentUserService currentUserService;
 
-    public ConversationService(ConversationRepository conversationRepository) {
+    public ConversationService(ConversationRepository conversationRepository,
+                               CurrentUserService currentUserService) {
         this.conversationRepository = conversationRepository;
+        this.currentUserService = currentUserService;
     }
 
     @Transactional
@@ -25,53 +29,32 @@ public class ConversationService {
         OffsetDateTime now = OffsetDateTime.now();
 
         Conversation conversation = new Conversation();
-
         conversation.setId(UUID.randomUUID());
+        conversation.setUserId(currentUserService.requireUserId());
         conversation.setTitle(title);
         conversation.setCreatedAt(now);
         conversation.setUpdatedAt(now);
 
-        Conversation savedConversation =
-                conversationRepository.save(conversation);
-
-        return toResponse(savedConversation);
+        return toResponse(conversationRepository.save(conversation));
     }
 
     @Transactional
     public ConversationResponse editConversation(UUID conversationId, String newTitle) {
-        Conversation conversation = conversationRepository.findById(conversationId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Conversation not found: " + conversationId
-                        )
-                );
-
+        Conversation conversation = require(conversationId);
         conversation.setTitle(newTitle);
         conversation.setUpdatedAt(OffsetDateTime.now());
-
-        Conversation updatedConversation = conversationRepository.save(conversation);
-
-        return toResponse(updatedConversation);
+        return toResponse(conversationRepository.save(conversation));
     }
 
     @Transactional(readOnly = true)
     public ConversationResponse getConversation(UUID conversationId) {
-
-        Conversation conversation = conversationRepository.findById(conversationId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Conversation not found: " + conversationId
-                        )
-                );
-
-        return toResponse(conversation);
+        return toResponse(require(conversationId));
     }
 
     @Transactional(readOnly = true)
     public List<ConversationResponse> getAllConversations() {
-
         return conversationRepository
-                .findAllByOrderByUpdatedAtDesc()
+                .findAllByUserIdOrderByUpdatedAtDesc(currentUserService.requireUserId())
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -79,18 +62,24 @@ public class ConversationService {
 
     @Transactional
     public void deleteConversation(UUID conversationId) {
+        Conversation conversation = require(conversationId);
+        conversationRepository.delete(conversation);
+    }
 
-        if (!conversationRepository.existsById(conversationId)) {
-            throw new IllegalArgumentException(
-                    "Conversation not found: " + conversationId
-            );
-        }
-
-        conversationRepository.deleteById(conversationId);
+    /**
+     * The single ownership gate. Every read and write goes through it.
+     *
+     * The message deliberately says "not found" rather than "not yours". Distinguishing the
+     * two tells an attacker which ids exist, which turns a guess into a confirmed target.
+     */
+    private Conversation require(UUID conversationId) {
+        return conversationRepository
+                .findByIdAndUserId(conversationId, currentUserService.requireUserId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Conversation not found: " + conversationId));
     }
 
     private ConversationResponse toResponse(Conversation conversation) {
-
         return new ConversationResponse(
                 conversation.getId(),
                 conversation.getTitle(),

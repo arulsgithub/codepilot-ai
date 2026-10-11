@@ -18,7 +18,7 @@
       aria-label="Stop generating"
       (click)="stopRequested.emit()"
     >
-      Stop
+      <span aria-hidden="true">■</span>
     </button>
   } @else {
     <button
@@ -28,7 +28,7 @@
       aria-label="Send message"
       (click)="submit()"
     >
-      Send
+      <span aria-hidden="true">↑</span>
     </button>
   }
 </div>

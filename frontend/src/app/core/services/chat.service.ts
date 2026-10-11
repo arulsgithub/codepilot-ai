@@ -16,6 +16,11 @@ import { SseParser } from '../../shared/utils/sse-parser';
  * `SseParser` to reassemble complete events even when the browser delivers
  * a JSON payload split across multiple `read()` calls.
  *
+ * NOTE on authentication: because this bypasses HttpClient, it also bypasses
+ * api.interceptor — so the session cookie and the apiBaseUrl prefix both have
+ * to be handled here by hand. Forgetting `credentials` produces a confusing
+ * split failure where ordinary chat works and only streaming returns 401.
+ *
  * This class intentionally contains ZERO Angular component logic — it only
  * knows how to turn a conversationId + message into a stream of
  * StreamEvents. UI state (idle/sending/streaming/completed/error) is owned
@@ -63,8 +68,19 @@ export class ChatService {
         Accept: 'text/event-stream',
       },
       body: JSON.stringify(request),
+      // Sends the JSESSIONID cookie. fetch() omits cookies by default — unlike
+      // XMLHttpRequest — so without this every stream request is unauthenticated
+      // and returns 401 even while the user is signed in.
+      credentials: 'include',
       signal,
     });
+
+    if (response.status === 401) {
+      // Distinguished from a generic stream failure so the UI can route the user
+      // to sign in rather than telling them the backend is unreachable. The
+      // backend IS reachable; it declined the request.
+      throw new UnauthenticatedError('Not signed in — the chat session has expired.');
+    }
 
     if (!response.ok) {
       throw new HttpStreamError(
@@ -120,5 +136,17 @@ export class HttpStreamError extends Error {
   ) {
     super(message);
     this.name = 'HttpStreamError';
+  }
+}
+
+/**
+ * Thrown when the stream request is rejected because there is no valid session.
+ * Separate from HttpStreamError so callers can react differently: this one means
+ * "sign in again", not "something went wrong".
+ */
+export class UnauthenticatedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'UnauthenticatedError';
   }
 }

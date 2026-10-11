@@ -80,6 +80,27 @@
           }
         </dl>
 
+        @if (needsFirstIndex() && !isIndexing() && !confirmingReindex()) {
+          <div class="repo-alert repo-alert--info details-index-prompt" role="status">
+            <span aria-hidden="true">ℹ</span>
+            <div class="details-index-prompt-body">
+              <span>
+                <strong>This repository hasn't been indexed yet</strong> — chat answers won't be
+                grounded in its code until it is. Indexing takes a few minutes: embeddings are
+                generated through a rate-limited API, so larger repositories take longer.
+              </span>
+              <button
+                type="button"
+                class="repo-btn repo-btn--primary repo-btn--small"
+                [disabled]="otherIndexRunning()"
+                (click)="indexNow()"
+              >
+                Index now
+              </button>
+            </div>
+          </div>
+        }
+
         <div class="details-actions">
           @if (repo.sourceType === 'GITHUB') {
             <button

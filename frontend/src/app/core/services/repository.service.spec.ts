@@ -249,6 +249,40 @@ describe('RepositoryService', () => {
       expect(service.addStatus()).toBe('idle');
       expect(service.addError()).toBeNull();
     });
+
+    // A 401 reaching this service's own error handler no longer routes to
+    // sign-in here: api.interceptor.ts clears the session for every request
+    // before this callback runs, and AppComponent reacting to that is what
+    // actually swaps the dialog away. See api.interceptor.spec.ts. This
+    // service just needs to keep behaving normally for whatever error object
+    // it receives, which the generic "surfaces the backend message" test
+    // above already covers for any status including 401.
+
+    it('flags local registration as disabled on the deployment-disabled 400, but not other 400s', () => {
+      create();
+      expect(service.localRegistrationDisabled()).toBeFalse();
+
+      service.registerLocal({ rootPath: 'E:\\thing' });
+      const { body, init } = apiError(
+        'Registering local filesystem paths is disabled on this deployment.',
+        400
+      );
+      http.expectOne('/api/v1/repositories/local').flush(body, init);
+
+      expect(service.localRegistrationDisabled()).toBeTrue();
+      expect(service.addError()).toBe(
+        'Registering local filesystem paths is disabled on this deployment.'
+      );
+    });
+
+    it('does not flag local registration as disabled for an unrelated 400', () => {
+      create();
+      service.registerLocal({ rootPath: 'E:\\nope' });
+      const { body, init } = apiError('Not a directory: E:\\nope', 400);
+      http.expectOne('/api/v1/repositories/local').flush(body, init);
+
+      expect(service.localRegistrationDisabled()).toBeFalse();
+    });
   });
 
   describe('sync', () => {

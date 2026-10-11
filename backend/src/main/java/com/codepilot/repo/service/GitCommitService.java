@@ -1,5 +1,6 @@
 package com.codepilot.repo.service;
 
+import com.codepilot.auth.service.GitHubTokenProvider;
 import com.codepilot.repo.config.GitWorkspaceProperties;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -41,9 +42,11 @@ public class GitCommitService {
             DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss", Locale.ROOT);
 
     private final GitWorkspaceProperties properties;
+    private final GitHubTokenProvider tokenProvider;
 
-    public GitCommitService(GitWorkspaceProperties properties) {
+    public GitCommitService(GitWorkspaceProperties properties, GitHubTokenProvider tokenProvider) {
         this.properties = properties;
+        this.tokenProvider = tokenProvider;
     }
 
     /**
@@ -103,16 +106,15 @@ public class GitCommitService {
 
     /** Push a branch to origin. Requires a token with write access. */
     public void push(Path repositoryDirectory, String branch) {
-        if (!properties.hasToken()) {
-            throw new GitRepositoryService.GitOperationException(
-                    "Pushing requires a GITHUB_TOKEN with write access to the repository. "
-                            + "None is configured.", null);
-        }
+
+        // require(), not resolve(): pushing anonymously is impossible, so fail with a message
+        // the user can act on rather than letting GitHub reject it as a confusing 403.
+        String token = tokenProvider.require("Pushing a branch");
 
         try (Git git = Git.open(repositoryDirectory.toFile())) {
 
             CredentialsProvider credentials =
-                    new UsernamePasswordCredentialsProvider(properties.getToken(), "");
+                    new UsernamePasswordCredentialsProvider(token, "");
 
             Iterable<PushResult> results = git.push()
                     .setCredentialsProvider(credentials)
@@ -120,9 +122,8 @@ public class GitCommitService {
                     .setRefSpecs(new RefSpec("refs/heads/" + branch + ":refs/heads/" + branch))
                     .call();
 
-            // JGit does NOT throw on a rejected push - it reports per-ref status. Skipping
-            // this check is how you end up believing a push succeeded when the server
-            // refused it (protected branch, no permission, non-fast-forward).
+            // JGit does NOT throw on a rejected push - it reports per-ref status. Skipping this
+            // check is how you end up believing a push succeeded when the server refused it.
             for (PushResult result : results) {
                 for (RemoteRefUpdate update : result.getRemoteUpdates()) {
                     RemoteRefUpdate.Status status = update.getStatus();
@@ -130,7 +131,9 @@ public class GitCommitService {
                             && status != RemoteRefUpdate.Status.UP_TO_DATE) {
                         throw new GitRepositoryService.GitOperationException(
                                 "Push of " + branch + " was rejected: " + status
-                                        + (update.getMessage() == null ? "" : " - " + update.getMessage()),
+                                        + (update.getMessage() == null ? "" : " - " + update.getMessage())
+                                        + " | Your GitHub account may not have write access to this "
+                                        + "repository, or the branch may be protected.",
                                 null);
                     }
                 }
@@ -139,13 +142,11 @@ public class GitCommitService {
             log.info("Pushed branch {} to origin", branch);
 
         } catch (GitAPIException e) {
-            throw new GitRepositoryService.GitOperationException(
-                    "Push failed: " + e.getMessage(), e);
+            throw new GitRepositoryService.GitOperationException("Push failed: " + e.getMessage(), e);
         } catch (IOException e) {
             throw new UncheckedIOException("Could not open repository " + repositoryDirectory, e);
         }
     }
-
     /** Return to the repository's tracking branch, so the clone is left in a clean state. */
     public void checkout(Path repositoryDirectory, String branch) {
         try (Git git = Git.open(repositoryDirectory.toFile())) {

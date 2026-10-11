@@ -1,11 +1,12 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IndexingStatus } from '../../../../core/models/indexing.model';
+import { UserMenuComponent } from '../../../auth/components/user-menu/user-menu.component';
 
 @Component({
   selector: 'app-chat-header',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, UserMenuComponent],
   templateUrl: './chat-header.component.html',
   styleUrl: './chat-header.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
