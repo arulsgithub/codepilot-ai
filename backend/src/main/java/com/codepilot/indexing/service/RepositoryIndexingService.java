@@ -3,6 +3,7 @@ package com.codepilot.indexing.service;
 import com.codepilot.chunking.dto.CodeChunk;
 import com.codepilot.chunking.service.CodeChunker;
 import com.codepilot.embedding.EmbeddingClient;
+import com.codepilot.embedding.EmbeddingProperties;
 import com.codepilot.indexing.entity.CodeChunkEntity;
 import com.codepilot.ingestion.dto.SourceFile;
 import com.codepilot.ingestion.service.FileFilter;
@@ -18,10 +19,12 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 /**
  * The single pipeline that ties every Phase 2 piece together:
@@ -41,7 +44,8 @@ public class RepositoryIndexingService {
 
     private static final Logger log = LoggerFactory.getLogger(RepositoryIndexingService.class);
 
-    private static final int EMBEDDING_BATCH_SIZE = 20; // stay well under typical provider request limits
+    /** Reports nothing. Used by synchronous callers that have nowhere to report progress to. */
+    private static final Consumer<String> NO_PROGRESS = progress -> { };
 
     private final RepositoryIngestionService ingestionService;
     private final SourceFileParsingService parsingService;
@@ -50,8 +54,13 @@ public class RepositoryIndexingService {
     private final FileFilter fileFilter;
     private final ChunkPersistenceService chunkPersistenceService;
     private final SymbolIndexingService symbolIndexingService;
-    /** 0 for a local embedding server; ~1000 when using a rate-limited hosted provider. */
-    private static final int EMBEDDING_PACING_MILLIS = 0;
+
+    /**
+     * Batch size and pacing come from configuration rather than constants, because the correct
+     * values are a property of the provider, not of this class. Ollama: big batches, no pacing.
+     * A throttled free tier: small batches, long pauses.
+     */
+    private final EmbeddingProperties embeddingProperties;
 
     public RepositoryIndexingService(RepositoryIngestionService ingestionService,
                                      SourceFileParsingService parsingService,
@@ -59,7 +68,8 @@ public class RepositoryIndexingService {
                                      EmbeddingClient embeddingClient,
                                      FileFilter fileFilter,
                                      ChunkPersistenceService chunkPersistenceService,
-                                     SymbolIndexingService symbolIndexingService) {
+                                     SymbolIndexingService symbolIndexingService,
+                                     EmbeddingProperties embeddingProperties) {
         this.ingestionService = ingestionService;
         this.parsingService = parsingService;
         this.codeChunker = codeChunker;
@@ -67,22 +77,50 @@ public class RepositoryIndexingService {
         this.fileFilter = fileFilter;
         this.chunkPersistenceService = chunkPersistenceService;
         this.symbolIndexingService = symbolIndexingService;
+        this.embeddingProperties = embeddingProperties;
     }
 
     public int indexRepository(String repositoryRoot) {
+        return indexRepository(repositoryRoot, NO_PROGRESS);
+    }
+
+    /**
+     * @param progress called at phase boundaries so a background job can report where it is.
+     *                 A Consumer rather than a job id, so this service stays unaware of the job
+     *                 layer - otherwise indexing would depend on jobs, which depend on indexing.
+     */
+    public int indexRepository(String repositoryRoot, Consumer<String> progress) {
+        long startedAt = System.nanoTime();
+
+        progress.accept("Scanning files");
         List<SourceFile> sourceFiles = ingestionService.scan(Path.of(repositoryRoot), false);
         List<CodeUnit> units = parsingService.parseAll(sourceFiles);
         List<CodeChunk> chunks = codeChunker.chunkAll(units);
 
         // Slow phase: all network, no DB connection held.
-        List<CodeChunkEntity> entities = embedChunks(repositoryRoot, chunks);
+        long embedStartedAt = System.nanoTime();
+        List<CodeChunkEntity> entities = embedChunks(repositoryRoot, chunks, progress);
+        Duration embedElapsed = elapsedSince(embedStartedAt);
 
         // Symbol extraction is CPU-only (no network), so its own short transaction is fine.
+        progress.accept("Building symbol index");
         symbolIndexingService.indexAll(repositoryRoot, sourceFiles);
 
         // Fast phase: one short atomic transaction.
+        progress.accept("Saving");
         int saved = chunkPersistenceService.replaceAll(repositoryRoot, entities);
-        log.info("Indexed {} chunks for {}", saved, repositoryRoot);
+
+        // Timing is logged per-phase on purpose. "Indexing was slow" is not actionable;
+        // "embedding took 8 of the 9 minutes" points straight at the provider and its rate
+        // limit, which is the only knob that matters here.
+        Duration totalElapsed = elapsedSince(startedAt);
+        log.info("Indexed {} chunks for {} | provider={} model={} batch-size={} pacing={}ms "
+                        + "| embedding {} ({} chunks/sec) | total {}",
+                saved, repositoryRoot,
+                embeddingProperties.getProvider(), embeddingProperties.getModel(),
+                embeddingProperties.getBatchSize(), embeddingProperties.getPacingMillis(),
+                format(embedElapsed), rate(saved, embedElapsed), format(totalElapsed));
+
         return saved;
     }
 
@@ -116,7 +154,7 @@ public class RepositoryIndexingService {
         List<CodeChunkEntity> entities = List.of();
         if (!sourceFiles.isEmpty()) {
             List<CodeChunk> chunks = codeChunker.chunkAll(parsingService.parseAll(sourceFiles));
-            entities = embedChunks(repositoryRoot, chunks);
+            entities = embedChunks(repositoryRoot, chunks, NO_PROGRESS);
             symbolIndexingService.reindexFiles(repositoryRoot, sourceFiles, relativeFilePaths);
         }
 
@@ -129,26 +167,34 @@ public class RepositoryIndexingService {
      * Embeds chunks in batches and builds entities IN MEMORY. Does not touch the database - that
      * separation is what lets the DB transaction stay short.
      */
-    private List<CodeChunkEntity> embedChunks(String repositoryRoot, List<CodeChunk> chunks) {
+    private List<CodeChunkEntity> embedChunks(String repositoryRoot, List<CodeChunk> chunks,
+                                              Consumer<String> progress) {
         if (chunks.isEmpty()) {
             return List.of();
         }
 
+        int batchSize = Math.max(1, embeddingProperties.getBatchSize());
+        long pacingMillis = embeddingProperties.getPacingMillis();
+
         List<CodeChunkEntity> entities = new ArrayList<>();
         OffsetDateTime now = OffsetDateTime.now();
-        int totalBatches = (chunks.size() + EMBEDDING_BATCH_SIZE - 1) / EMBEDDING_BATCH_SIZE;
+        int totalBatches = (chunks.size() + batchSize - 1) / batchSize;
 
-        for (int i = 0; i < chunks.size(); i += EMBEDDING_BATCH_SIZE) {
-            if (i > 0 && EMBEDDING_PACING_MILLIS > 0) {
+        for (int i = 0; i < chunks.size(); i += batchSize) {
+            if (i > 0 && pacingMillis > 0) {
                 // Hosted providers rate-limit per minute; a local Ollama server does not, so this
                 // pacing is pure wasted wall-clock time there.
-                sleep(EMBEDDING_PACING_MILLIS);
+                sleep(pacingMillis);
             }
-            int batchNumber = (i / EMBEDDING_BATCH_SIZE) + 1;
-            // Progress logging: a silent multi-minute run is indistinguishable from a hung one.
-            log.info("Embedding batch {}/{} ({} chunks total)", batchNumber, totalBatches, chunks.size());
+            int batchNumber = (i / batchSize) + 1;
 
-            List<CodeChunk> batch = chunks.subList(i, Math.min(i + EMBEDDING_BATCH_SIZE, chunks.size()));
+            // Progress goes to BOTH the log and the caller: a silent multi-minute run is
+            // indistinguishable from a hung one, in a log file or in a UI.
+            String phase = "Embedding batch " + batchNumber + "/" + totalBatches;
+            log.info("{} ({} chunks total)", phase, chunks.size());
+            progress.accept(phase);
+
+            List<CodeChunk> batch = chunks.subList(i, Math.min(i + batchSize, chunks.size()));
             List<String> texts = batch.stream().map(CodeChunk::content).toList();
             List<List<Float>> vectors =
                     embeddingClient.embedBatch(texts, EmbeddingClient.InputType.PASSAGE);
@@ -173,6 +219,22 @@ public class RepositoryIndexingService {
         }
 
         return entities;
+    }
+
+    private Duration elapsedSince(long startNanos) {
+        return Duration.ofNanos(System.nanoTime() - startNanos);
+    }
+
+    private String format(Duration duration) {
+        long totalSeconds = duration.toSeconds();
+        return totalSeconds < 60
+                ? totalSeconds + "s"
+                : (totalSeconds / 60) + "m " + (totalSeconds % 60) + "s";
+    }
+
+    private String rate(int chunks, Duration duration) {
+        double seconds = Math.max(0.001, duration.toMillis() / 1000.0);
+        return String.format("%.1f", chunks / seconds);
     }
 
     private void sleep(long millis) {
