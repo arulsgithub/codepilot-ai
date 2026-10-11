@@ -25,10 +25,23 @@ FROM maven:3.9-eclipse-temurin-21 AS backend
 
 WORKDIR /backend
 
-# Same caching trick: resolve dependencies from the pom alone, so a Java edit does
-# not re-download the entire Maven repository.
+# Maven settings BEFORE any mvn invocation, or the mirror is not in effect for the
+# very download that needs it most. Points Maven Central at Google's mirror: CI
+# builders share outbound IPs, and repo.maven.apache.org rate-limits by IP, so a
+# cold build pulling hundreds of artifacts gets a 429 partway through.
+COPY backend/.mvn/settings.xml /root/.m2/settings.xml
+
+# Same caching trick as the frontend: resolve dependencies from the pom alone, so a
+# Java edit does not re-download the entire Maven repository.
 COPY backend/pom.xml ./
-RUN mvn -B dependency:go-offline
+
+# Retry transient HTTP failures. Maven's default retry count is 0, which is far too
+# brittle for CI - one dropped connection among several hundred artifacts should not
+# cost a ten-minute rebuild.
+RUN mvn -B \
+    -Dmaven.wagon.http.retryHandler.count=5 \
+    -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 \
+    dependency:go-offline
 
 COPY backend/src ./src
 
@@ -40,7 +53,9 @@ COPY backend/src ./src
 # one directory too deep and a blank page with no error.
 COPY --from=frontend /frontend/dist/codepilot-ai-frontend/browser/ ./src/main/resources/static/
 
-RUN mvn -B clean package -DskipTests
+RUN mvn -B \
+    -Dmaven.wagon.http.retryHandler.count=5 \
+    clean package -DskipTests
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Stage 3: runtime
@@ -70,6 +85,12 @@ EXPOSE 8080
 #
 # 70% leaves room for metaspace, thread stacks, and the off-heap buffers Netty uses
 # for the embedding and LLM clients.
+#
+# UseSerialGC on purpose: on a single small container the parallel collectors spend
+# more on coordination than they save, and reserve more memory per thread.
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=70 -XX:+UseSerialGC"
 
+# `exec` matters: without it, sh stays as PID 1 and swallows the SIGTERM the platform
+# sends on shutdown, so the JVM is killed rather than shutting down cleanly and
+# waitForTasksToCompleteOnShutdown never runs.
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]

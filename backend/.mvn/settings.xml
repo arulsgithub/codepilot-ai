@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
+
+    <!--
+      Maven Central rate-limits by IP, and CI builders share outbound IPs with many
+      other users - so a cold build downloading hundreds of artifacts can be throttled
+      with a 429 partway through. This file makes the build survive that.
+    -->
+    <mirrors>
+        <mirror>
+            <!--
+              Google's mirror of Maven Central. Same artifacts, same checksums, served from
+              GCS with far more generous limits than repo.maven.apache.org applies to shared
+              CI addresses.
+            -->
+            <id>google-maven-central</id>
+            <name>Google Maven Central Mirror</name>
+            <url>https://maven-central.storage-download.googleapis.com/maven2/</url>
+            <mirrorOf>central</mirrorOf>
+        </mirror>
+    </mirrors>
+
+</settings>
